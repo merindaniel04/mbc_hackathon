@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streetlight Alert App</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9fafb;
+            color: #1f2937;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .card {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .btn-primary {
+            background-color: #312e81;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #4338ca;
+        }
+        .btn-secondary {
+            background-color: #e5e7eb;
+            color: #4b5563;
+        }
+        .btn-secondary:hover {
+            background-color: #d1d5db;
+        }
+        .form-input {
+            padding: 0.75rem 1rem;
+            font-size: 1.125rem; /* text-lg */
+            border-radius: 0.5rem;
+            border: 1px solid #d1d5db;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            width: 100%;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+<div id="app-container" class="w-full max-w-2xl">
+    <!-- Content will be dynamically rendered here -->
+</div>
+
+<script>
+    // --- Data Storage and State Management ---
+    // Use localStorage to simulate a database for the hackathon
+    let userRole = localStorage.getItem('userRole') || null;
+    let isLoggedIn = localStorage.getItem('isLoggedIn') === 'true'; // New state variable
+    let complaints = JSON.parse(localStorage.getItem('complaints')) || [];
+    let requests = JSON.parse(localStorage.getItem('requests')) || [];
+    let nextPoleId = parseInt(localStorage.getItem('nextPoleId')) || 1001;
+    
+    // Global state for logged-in user details
+    let currentCitizen = JSON.parse(localStorage.getItem('currentCitizen')) || null;
+    let currentWorker = JSON.parse(localStorage.getItem('currentWorker')) || null;
+    let currentAuthority = JSON.parse(localStorage.getItem('currentAuthority')) || null;
+    
+    let otpTimer = null; // Timer for OTP countdown
+
+    // User data for a simple sign-up system
+    let citizens = JSON.parse(localStorage.getItem('citizens')) || [{ username: 'citizen_user', phoneNumber: '9876543210' }];
+    let workers = JSON.parse(localStorage.getItem('workers')) || [{ workerId: 'W123', phoneNumber: '1234567890', password: 'password123' }, { workerId: 'W124', phoneNumber: '1234567891', password: 'password124' }];
+    let authorities = JSON.parse(localStorage.getItem('authorities')) || [{ authorityId: 'A456', username: 'auth_admin', password: 'adminpassword' }];
+
+    function saveState() {
+        localStorage.setItem('userRole', userRole);
+        localStorage.setItem('isLoggedIn', isLoggedIn);
+        localStorage.setItem('complaints', JSON.stringify(complaints));
+        localStorage.setItem('requests', JSON.stringify(requests));
+        localStorage.setItem('nextPoleId', nextPoleId);
+        localStorage.setItem('citizens', JSON.stringify(citizens));
+        localStorage.setItem('workers', JSON.stringify(workers));
+        localStorage.setItem('authorities', JSON.stringify(authorities));
+        localStorage.setItem('currentCitizen', JSON.stringify(currentCitizen));
+        localStorage.setItem('currentWorker', JSON.stringify(currentWorker));
+        localStorage.setItem('currentAuthority', JSON.stringify(currentAuthority));
+    }
+
+    // --- UI Rendering Functions ---
+    const appContainer = document.getElementById('app-container');
+
+    // Updated SVG logo with a right-shifted light cone
+    const logoSvg = `<svg class="h-16 w-16 mx-auto mb-4" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <!-- Pole -->
+        <line x1="50" y1="95" x2="50" y2="15" stroke="black" stroke-width="6" />
+        <!-- Arm -->
+        <line x1="50" y1="15" x2="75" y2="15" stroke="black" stroke-width="6" />
+        <!-- Lamp Housing -->
+        <rect x="68" y="10" width="15" height="10" rx="2" fill="black" />
+        <!-- Light Cone, now shifted more to the right -->
+        <polygon points="75,20 110,95 40,95" fill="yellow" opacity="0.6" />
+    </svg>`;
+
+    function renderLoginPage() {
+        appContainer.innerHTML = `
+            <div class="card text-center shadow-lg">
+                ${logoSvg}
+                <h1 class="text-3xl font-bold text-gray-800 mb-6">Streetlight Alert System</h1>
+                <p class="text-gray-600 mb-8">Select your role to continue.</p>
+                <div class="flex flex-col space-y-4">
+                    <button onclick="selectRole('citizen')" class="btn btn-primary w-full">Citizen 🚶‍♂️</button>
+                    <button onclick="selectRole('worker')" class="btn btn-primary w-full">Worker 👷</button>
+                    <button onclick="selectRole('authority')" class="btn btn-primary w-full">Authority 🏛️</button>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Renders the intermediate login/signup page
+    function renderLoginOrSignupPage(role) {
+        appContainer.innerHTML = `
+            <div class="card text-center shadow-lg">
+                ${logoSvg}
+                <h1 class="text-3xl font-bold text-gray-800 mb-6">${role.charAt(0).toUpperCase() + role.slice(1)} Access</h1>
+                <p class="text-gray-600 mb-8">Select an option to proceed.</p>
+                <div class="flex flex-col space-y-4">
+                    <button onclick="renderCorrectForm('login')" class="btn btn-primary w-full">Login</button>
+                    <button onclick="renderCorrectForm('signup')" class="btn btn-secondary w-full">Sign Up</button>
+                </div>
+                <button onclick="logout()" class="btn btn-secondary mt-4 w-full">Back to Role Selection</button>
+            </div>
+        `;
+    }
+
+    // Directs to the correct login or signup form based on user's choice
+    function selectRole(role) {
+      userRole = role;
+      isLoggedIn = false; // Reset login state
+      saveState();
+      renderLoginOrSignupPage(role);
+    }
+    
+    function renderCorrectForm(action) {
+        if (action === 'login') {
+            if (userRole === 'citizen') renderCitizenLoginForm();
+            else if (userRole === 'worker') renderWorkerLoginForm();
+            else if (userRole === 'authority') renderAuthorityLoginForm();
+        } else if (action === 'signup') {
+            if (userRole === 'citizen') renderCitizenSignupForm();
+            else if (userRole === 'worker') renderWorkerSignupForm();
+            else if (userRole === 'authority') renderAuthoritySignupForm();
+        }
+    }
+
+    // --- Login Forms ---
+    function renderCitizenLoginForm() {
+        appContainer.innerHTML = `
+            <div class="card shadow-lg">
+                ${logoSvg}
+                <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Citizen Login</h1>
+                <form id="login-form" class="space-y-4">
+                    <input type="hidden" name="role" value="citizen">
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+                        <input type="text" id="username" name="username" class="form-input" required>
+                    </div>
+                    <div>
+                        <label for="phoneNumber" class="block text-sm font-medium text-gray-700">Phone Number</label>
+                        <input type="tel" id="phoneNumber" name="phoneNumber" class="form-input" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-full">Verify & Login</button>
+                </form>
+                <button onclick="renderLoginOrSignupPage('citizen')" class="btn btn-secondary mt-4 w-full">Back</button>
+            </div>
+        `;
+        document.getElementById('login-form').addEventListener('submit', handleLogin);
+    }
+
+    // New OTP verification page
+    function renderOtpVerificationPage() {
+        // Clear any existing timer
+        if (otpTimer) clearInterval(otpTimer);
+        let timeLeft = 60;
+        
+        appContainer.innerHTML = `
+            <div class="card shadow-lg">
+                ${logoSvg}
+                <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">OTP Verification</h1>
+                <p class="text-gray-600 mb-4 text-center">A 6-digit OTP has been sent to your phone number.</p>
+                <form id="otp-form" class="space-y-4">
+                    <div>
+                        <label for="otp" class="block text-sm font-medium text-gray-700">Enter OTP</label>
+                        <input type="text" id="otp" name="otp" maxlength="6" class="form-input text-center" required>
+                    </div>
+                    <div class="text-center text-sm font-medium text-gray-500" id="timer-display">Time left: 60s</div>
+                    <button type="submit" id="verify-btn" class="btn btn-primary w-full">Verify OTP</button>
+                </form>
+                <button onclick="renderCitizenLoginForm()" class="btn btn-secondary mt-4 w-full">Back</button>
+            </div>
+        `;
+        document.getElementById('otp-form').addEventListener('submit', handleOtpVerification);
+        
+        // Start the countdown timer
+        const timerDisplay = document.getElementById('timer-display');
+        const verifyBtn = document.getElementById('verify-btn');
+        
+        otpTimer = setInterval(() => {
+            timeLeft--;
+            timerDisplay.textContent = `Time left: ${timeLeft}s`;
+            if (timeLeft <= 0) {
+                clearInterval(otpTimer);
+                verifyBtn.disabled = true;
+                verifyBtn.classList.add('bg-gray-400');
+                verifyBtn.classList.remove('btn-primary');
+                timerDisplay.textContent = "Time expired. Please try again.";
+            }
+        }, 1000);
+    }
+
+
+    function renderWorkerLoginForm() {
+        appContainer.innerHTML = `
+            <div class="card shadow-lg">
+                ${logoSvg}
+                <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Worker Login</h1>
+                <form id="login-form" class="space-y-4">
+                    <input type="hidden" name="role" value="worker">
+                    <div>
+                        <label for="workerId" class="block text-sm font-medium text-gray-700">Worker ID</label>
+                        <input type="text" id="workerId" name="workerId" class="form-input" required>
+                    </div>
+                    <div>
+                        <label for="phoneNumber" class="block text-sm font-medium text-gray-700">Phone Number</label>
+                        <input type="tel" id="phoneNumber" name="phoneNumber" class="form-input" required>
+                    </div>
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                        <input type="password" id="password" name="password" class="form-input" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-full">Login</button>
+                </form>
+                <button onclick="renderLoginOrSignupPage('worker')" class="btn btn-secondary mt-4 w-full">Back</button>
+            </div>
+        `;
+        document.getElementById('login-form').addEventListener('submit', handleLogin);
+    }
+
+    function renderAuthorityLoginForm() {
+        appContainer.innerHTML = `
+            <div class="card shadow-lg">
+                ${logoSvg}
+                <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Authority Login</h1>
+                <form id="login-form" class="space-y-4">
+                    <input type="hidden" name="role" value="authority">
+                    <div>
+                        <label for="authorityId" class="block text-sm font-medium text-gray-700">Authority ID</label>
+                        <input type="text" id="authorityId" name="authorityId" class="form-input" required>
+                    </div>
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+                        <input type="text" id="username" name="username" class="form-input" required>
+                    </div>
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                        <input type="password" id="password" name="password" class="form-input" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-full">Login</button>
+                </form>
+                <button onclick="renderLoginOrSignupPage('authority')" class="btn btn-secondary mt-4 w-full">Back</button>
+            </div>
+        `;
+        document.getElementById('login-form').addEventListener('submit', handleLogin);
+    }
+
+    // --- Sign Up Forms ---
+    function renderCitizenSignupForm() {
+        appContainer.innerHTML = `
+            <div class="card shadow-lg">
+                ${logoSvg}
+                <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Citizen Sign Up</h1>
+                <form id="signup-form" class="space-y-4">
+                    <input type="hidden" name="role" value="citizen">
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+                        <input type="text" id="username" name="username" class="form-input" required>
+                    </div>
+                    <div>
+                        <label for="phoneNumber" class="block text-sm font-medium text-gray-700">Phone Number</label>
+                        <input type="tel" id="phoneNumber" name="phoneNumber" class="form-input" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-full">Sign Up</button>
+                </form>
+                <button onclick="renderLoginOrSignupPage('citizen')" class="btn btn-secondary mt-4 w-full">Back</button>
+            </div>
+        `;
+        document.getElementById('signup-form').addEventListener('submit', handleSignup);
+    }
+    
+    function renderWorkerSignupForm() {
+        appContainer.innerHTML = `
+            <div class="card shadow-lg">
+                ${logoSvg}
+                <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Worker Sign Up</h1>
+                <form id="signup-form" class="space-y-4">
+                    <input type="hidden" name="role" value="worker">
+                    <div>
+                        <label for="workerId" class="block text-sm font-medium text-gray-700">Worker ID</label>
+                        <input type="text" id="workerId" name="workerId" class="form-input" required>
+                    </div>
+                    <div>
+                        <label for="phoneNumber" class="block text-sm font-medium text-gray-700">Phone Number</label>
+                        <input type="tel" id="phoneNumber" name="phoneNumber" class="form-input" required>
+                    </div>
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                        <input type="password" id="password" name="password" class="form-input" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-full">Sign Up</button>
+                </form>
+                <button onclick="renderLoginOrSignupPage('worker')" class="btn btn-secondary mt-4 w-full">Back</button>
+            </div>
+        `;
+        document.getElementById('signup-form').addEventListener('submit', handleSignup);
+    }
+    
+    function renderAuthoritySignupForm() {
+        appContainer.innerHTML = `
+            <div class="card shadow-lg">
+                ${logoSvg}
+                <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Authority Sign Up</h1>
+                <form id="signup-form" class="space-y-4">
+                    <input type="hidden" name="role" value="authority">
+                    <div>
+                        <label for="authorityId" class="block text-sm font-medium text-gray-700">Authority ID</label>
+                        <input type="text" id="authorityId" name="authorityId" class="form-input" required>
+                    </div>
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+                        <input type="text" id="username" name="username" class="form-input" required>
+                    </div>
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                        <input type="password" id="password" name="password" class="form-input" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-full">Sign Up</button>
+                </form>
+                <button onclick="renderLoginOrSignupPage('authority')" class="btn btn-secondary mt-4 w-full">Back</button>
+            </div>
+        `;
+        document.getElementById('signup-form').addEventListener('submit', handleSignup);
+    }
+    
+    // --- Dashboards (unchanged) ---
+    function renderCitizenDashboard() {
+        // Clear any OTP timer when moving to the dashboard
+        if (otpTimer) clearInterval(otpTimer);
+        
+        // Combine all reports and requests into a single list
+        const allReports = [...complaints, ...requests];
+        
+        appContainer.innerHTML = `
+            <div class="flex items-center justify-between mb-6">
+                <h1 class="text-3xl font-bold text-gray-800">Citizen Dashboard</h1>
+                <button onclick="logout()" class="btn btn-secondary">Logout</button>
+            </div>
+
+            <div class="card mb-6">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4">Report an Issue</h2>
+                <div class="flex flex-col md:flex-row md:space-x-4">
+                    <button onclick="renderReportForm('damage')" class="btn btn-primary w-full mb-2 md:mb-0">Report Damaged Light 💡</button>
+                    <button onclick="renderReportForm('new')" class="btn btn-primary w-full">Request New Streetlight ✨</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4">Your Recent Reports</h2>
+                ${allReports.length > 0 ? `
+                    <ul class="space-y-4">
+                        ${allReports.map(report => `
+                            <li class="p-4 bg-gray-50 rounded-lg flex justify-between items-center">
+                                <div>
+                                    <p class="font-semibold text-gray-800">${report.type === 'damage' ? 'Damaged Light Report' : 'New Light Request'}</p>
+                                    <p class="text-sm text-gray-500">${report.location}</p>
+                                    ${report.poleId ? `<p class="text-sm text-gray-500">Pole ID: <span class="font-bold text-gray-700">${report.poleId}</span></p>` : ''}
+                                    ${report.estimatedDate ? `<p class="text-sm text-gray-500">Est. Repair Date: <span class="font-bold text-gray-700">${report.estimatedDate}</span></p>` : ''}
+                                </div>
+                                <div class="text-sm font-medium ${report.status === 'Completed' ? 'text-green-600' : report.status === 'In Progress' ? 'text-yellow-600' : report.status === 'New' || report.status === 'Requested' ? 'text-blue-600' : 'text-blue-600'}">
+                                    ${report.status || 'Reported'}
+                                </div>
+                            </li>
+                        `).join('')}
+                    </ul>
+                ` : `
+                    <p class="text-gray-500 text-center">You have no recent reports.</p>
+                `}
+            </div>
+        `;
+    }
+
+    function renderReportForm(type) {
+        const title = type === 'damage' ? 'Report Damaged Streetlight' : 'Request New Streetlight';
+        const placeholder = type === 'damage' ? 'e.g., The light is flickering' : 'e.g., It is a dark corner with high foot traffic';
+        appContainer.innerHTML = `
+            <div class="card">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-semibold text-gray-700">${title}</h2>
+                    <button onclick="renderCitizenDashboard()" class="btn btn-secondary">Back</button>
+                </div>
+                
+                <form id="report-form" class="space-y-4">
+                    <input type="hidden" name="reportType" value="${type}">
+                    <div class="space-y-2">
+                        <label for="location" class="block text-gray-700 font-medium">Location</label>
+                        <div class="flex space-x-2">
+                            <input type="text" id="location" name="location" placeholder="e.g., Main St & Oak Ave" class="form-input" required>
+                            <button type="button" id="geolocation-btn" class="btn btn-secondary whitespace-nowrap">Use My Current Location</button>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-2">
+                        <label for="description" class="block text-gray-700 font-medium">Description</label>
+                        <textarea id="description" name="description" rows="4" placeholder="${placeholder}" class="form-input" required></textarea>
+                    </div>
+
+                    ${type === 'damage' ? `
+                    <div class="space-y-2">
+                        <label for="photo" class="block text-gray-700 font-medium">Photo (Optional)</label>
+                        <input type="file" id="photo" name="photo" accept="image/*" class="w-full text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
+                    </div>` : ''}
+
+                    <button type="submit" class="btn btn-primary w-full">Submit Report</button>
+                </form>
+            </div>
+        `;
+        document.getElementById('report-form').addEventListener('submit', handleReportSubmit);
+        document.getElementById('geolocation-btn').addEventListener('click', getGeolocation);
+    }
+    
+    function getGeolocation() {
+        const locationInput = document.getElementById('location');
+        const originalPlaceholder = locationInput.placeholder;
+        locationInput.value = '';
+        locationInput.placeholder = 'Fetching location...';
+        locationInput.disabled = true;
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    locationInput.value = `Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)}`;
+                    locationInput.placeholder = originalPlaceholder;
+                    locationInput.disabled = false;
+                    showMessage("Location fetched successfully!");
+                },
+                (error) => {
+                    locationInput.value = '';
+                    locationInput.placeholder = originalPlaceholder;
+                    locationInput.disabled = false;
+                    showMessage("Could not get location. Please enter manually.");
+                }
+            );
+        } else {
+            locationInput.value = '';
+            locationInput.placeholder = originalPlaceholder;
+            locationInput.disabled = false;
+            showMessage("Geolocation is not supported by this browser. Please enter manually.");
+        }
+    }
+
+
+    function renderWorkerDashboard() {
+        // Filter complaints and requests assigned to the current worker
+        const assignedComplaints = complaints.filter(c => c.assignedTo === currentWorker.workerId);
+        const assignedRequests = requests.filter(r => r.assignedTo === currentWorker.workerId);
+
+        appContainer.innerHTML = `
+            <div class="flex items-center justify-between mb-6">
+                <h1 class="text-3xl font-bold text-gray-800">Worker Dashboard</h1>
+                <button onclick="logout()" class="btn btn-secondary">Logout</button>
+            </div>
+
+            <div class="card mb-6">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4">My Assigned Complaints</h2>
+                ${assignedComplaints.length > 0 ? `
+                    <ul class="space-y-4">
+                        ${assignedComplaints.map(c => `
+                            <li class="p-4 bg-gray-50 rounded-lg flex flex-col md:flex-row md:justify-between md:items-center">
+                                <div class="mb-2 md:mb-0">
+                                    <p class="text-sm text-gray-500">Pole ID: <span class="font-bold text-gray-700">${c.poleId}</span></p>
+                                    <p class="font-semibold text-gray-800">${c.location}</p>
+                                    <p class="text-sm text-gray-600 truncate max-w-sm">${c.description}</p>
+                                    ${c.estimatedDate ? `<p class="text-sm text-gray-500">Est. Repair Date: <span class="font-bold text-gray-700">${c.estimatedDate}</span></p>` : ''}
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-sm font-medium ${c.status === 'Completed' ? 'text-green-600' : c.status === 'In Progress' ? 'text-yellow-600' : 'text-blue-600'}">
+                                        Status: ${c.status}
+                                    </span>
+                                    <button onclick="updateStatus(${c.poleId})" class="btn btn-primary text-sm px-3 py-1">
+                                        ${c.status === 'New' ? 'Start Work' : 'Mark as Fixed'}
+                                    </button>
+                                </div>
+                            </li>
+                        `).join('')}
+                    </ul>
+                ` : `
+                    <p class="text-gray-500 text-center">No open complaints assigned to you. Great job! 👍</p>
+                `}
+            </div>
+            
+            <div class="card">
+                 <h2 class="text-2xl font-semibold text-gray-700 mb-4">My Assigned Requests</h2>
+                 ${assignedRequests.length > 0 ? `
+                    <ul class="space-y-4">
+                        ${assignedRequests.map(r => `
+                            <li class="p-4 bg-gray-50 rounded-lg flex flex-col md:flex-row md:justify-between md:items-center">
+                                <div class="mb-2 md:mb-0">
+                                    <p class="font-semibold text-gray-800">${r.location}</p>
+                                    <p class="text-sm text-gray-600">${r.description}</p>
+                                </div>
+                                <div class="text-sm font-medium text-blue-600">
+                                    Status: ${r.status}
+                                </div>
+                            </li>
+                        `).join('')}
+                    </ul>
+                 ` : `
+                    <p class="text-gray-500 text-center">No new requests assigned to you.</p>
+                 `}
+            </div>
+        `;
+    }
+
+    function renderAuthorityDashboard() {
+        const totalComplaints = complaints.length + requests.length;
+        const completedComplaints = complaints.filter(c => c.status === 'Completed').length;
+        const inProgressComplaints = complaints.filter(c => c.status === 'In Progress').length;
+        const newComplaints = complaints.filter(c => c.status === 'New').length;
+        const totalRequests = requests.length;
+        
+        // Combine all reports and requests into a single list
+        const allReports = [...complaints, ...requests].sort((a,b) => b.id - a.id);
+        
+        appContainer.innerHTML = `
+            <div class="flex items-center justify-between mb-6">
+                <h1 class="text-3xl font-bold text-gray-800">Authority Dashboard</h1>
+                <button onclick="logout()" class="btn btn-secondary">Logout</button>
+            </div>
+
+            <div class="card grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-indigo-50 p-4 rounded-lg text-center">
+                    <p class="text-4xl font-bold text-indigo-700">${totalComplaints}</p>
+                    <p class="text-sm text-indigo-500">Total Reports & Requests</p>
+                </div>
+                <div class="bg-green-50 p-4 rounded-lg text-center">
+                    <p class="text-4xl font-bold text-green-700">${completedComplaints}</p>
+                    <p class="text-sm text-green-500">Complaints Fixed</p>
+                </div>
+                <div class="bg-yellow-50 p-4 rounded-lg text-center">
+                    <p class="text-4xl font-bold text-yellow-700">${inProgressComplaints}</p>
+                    <p class="text-sm text-yellow-500">In Progress</p>
+                </div>
+                <div class="bg-blue-50 p-4 rounded-lg text-center">
+                    <p class="text-4xl font-bold text-blue-700">${newComplaints}</p>
+                    <p class="text-sm text-blue-500">New Reports</p>
+                </div>
+                <div class="bg-gray-200 p-4 rounded-lg text-center md:col-span-2">
+                    <p class="text-2xl font-bold text-gray-700">${totalRequests}</p>
+                    <p class="text-sm text-gray-500">New Streetlight Requests</p>
+                </div>
+            </div>
+
+            <div class="card mt-6">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4">All Reports and Requests</h2>
+                ${allReports.length > 0 ? `
+                    <ul class="space-y-4">
+                        ${allReports.map(report => `
+                            <li onclick="showAuthorityReportDetails(${report.id}, '${report.type}')" class="p-4 bg-gray-50 rounded-lg flex flex-col md:flex-row md:justify-between md:items-center cursor-pointer transition-colors hover:bg-gray-100">
+                                <div class="mb-2 md:mb-0">
+                                    <p class="font-semibold text-gray-800">${report.type === 'damage' ? 'Damaged Light Report' : 'New Light Request'}</p>
+                                    <p class="text-sm text-gray-500">${report.location}</p>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-sm font-medium ${report.status === 'Completed' ? 'text-green-600' : report.status === 'In Progress' ? 'text-yellow-600' : report.status === 'New' || report.status === 'Requested' ? 'text-blue-600' : 'text-blue-600'}">
+                                        Status: ${report.status || 'Reported'}
+                                    </span>
+                                    ${report.assignedTo ? 
+                                        `<span class="text-sm text-gray-600">Assigned: ${report.assignedTo}</span>` :
+                                        `<button onclick="showAssignModal(${report.id}, event)" class="btn btn-primary text-sm px-3 py-1">Assign</button>`
+                                    }
+                                </div>
+                            </li>
+                        `).join('')}
+                    </ul>
+                ` : `
+                    <p class="text-gray-500 text-center">No reports or requests have been submitted yet.</p>
+                `}
+            </div>
+        `;
+    }
+
+    function showAuthorityReportDetails(id, type) {
+        const report = type === 'damage' ? complaints.find(c => c.id === id) : requests.find(r => r.id === id);
+        
+        if (!report) {
+            showMessage("Report not found.");
+            return;
+        }
+
+        appContainer.innerHTML = `
+            <div class="card">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-semibold text-gray-700">Report Details</h2>
+                    <div class="flex space-x-2">
+                        <button onclick="renderAuthorityDashboard()" class="btn btn-secondary">Back</button>
+                        ${report.assignedTo ? `<button onclick="renderAuthorityEditForm(${report.id}, '${report.type}')" class="btn btn-primary">Edit Report</button>` : ''}
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Report Type</p>
+                        <p class="text-lg font-semibold text-gray-800">${report.type === 'damage' ? 'Damaged Light Report' : 'New Light Request'}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Status</p>
+                        <p class="text-lg font-semibold text-gray-800">${report.status || 'Reported'}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Location</p>
+                        <p class="text-lg font-semibold text-gray-800">${report.location}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Description</p>
+                        <p class="text-lg font-semibold text-gray-800">${report.description}</p>
+                    </div>
+                    ${report.poleId ? `
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Pole ID</p>
+                        <p class="text-lg font-semibold text-gray-800">${report.poleId}</p>
+                    </div>` : ''}
+                    ${report.estimatedDate ? `
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Estimated Repair Date</p>
+                        <p class="text-lg font-semibold text-gray-800">${report.estimatedDate}</p>
+                    </div>` : ''}
+                    ${report.reportedBy ? `
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Reported By</p>
+                        <p class="text-lg font-semibold text-gray-800">${report.reportedBy}</p>
+                    </div>` : ''}
+                    ${report.assignedTo ? `
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Assigned To</p>
+                        <p class="text-lg font-semibold text-gray-800">${report.assignedTo}</p>
+                    </div>` : ''}
+                </div>
+            </div>
+        `;
+    }
+    
+    // Renders the editable form for the Authority to change report details
+    function renderAuthorityEditForm(id, type) {
+        const report = type === 'damage' ? complaints.find(c => c.id === id) : requests.find(r => r.id === id);
+        
+        if (!report) {
+            showMessage("Report not found.");
+            renderAuthorityDashboard();
+            return;
+        }
+
+        const isDamageReport = report.type === 'damage';
+
+        appContainer.innerHTML = `
+            <div class="card">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-semibold text-gray-700">Edit Report</h2>
+                    <button onclick="showAuthorityReportDetails(${id}, '${type}')" class="btn btn-secondary">Cancel</button>
+                </div>
+                
+                <form id="authority-edit-form" class="space-y-4">
+                    <input type="hidden" name="reportId" value="${id}">
+                    <input type="hidden" name="reportType" value="${type}">
+                    
+                    <div>
+                        <label for="status" class="block text-gray-700 font-medium">Status</label>
+                        <select id="status" name="status" class="form-input" required>
+                            <option value="New" ${report.status === 'New' ? 'selected' : ''}>New</option>
+                            <option value="In Progress" ${report.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                            <option value="Completed" ${report.status === 'Completed' ? 'selected' : ''}>Completed</option>
+                            ${!isDamageReport ? `<option value="Requested" ${report.status === 'Requested' ? 'selected' : ''}>Requested</option>`: ''}
+                        </select>
+                    </div>
+
+                    ${isDamageReport ? `
+                    <div>
+                        <label for="estimatedDate" class="block text-gray-700 font-medium">Estimated Repair Date</label>
+                        <input type="date" id="estimatedDate" name="estimatedDate" value="${report.estimatedDate || ''}" class="form-input">
+                    </div>` : ''}
+
+                    <div>
+                        <label for="assignedTo" class="block text-gray-700 font-medium">Assigned Worker</label>
+                        <select id="assignedTo" name="assignedTo" class="form-input">
+                            <option value="">-- Select Worker --</option>
+                            ${workers.map(w => `
+                                <option value="${w.workerId}" ${report.assignedTo === w.workerId ? 'selected' : ''}>${w.workerId}</option>
+                            `).join('')}
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-full">Save Changes</button>
+                </form>
+            </div>
+        `;
+        document.getElementById('authority-edit-form').addEventListener('submit', handleAuthorityUpdate);
+    }
+
+    // Handles the form submission from the Authority's edit page
+    function handleAuthorityUpdate(event) {
+        event.preventDefault();
+        const form = event.target;
+        const reportId = parseInt(form.reportId.value);
+        const reportType = form.reportType.value;
+        const newStatus = form.status.value;
+        const newAssignedTo = form.assignedTo.value;
+        const newEstimatedDate = form.estimatedDate ? form.estimatedDate.value : undefined;
+
+        const reportArray = reportType === 'damage' ? complaints : requests;
+        const report = reportArray.find(r => r.id === reportId);
+        
+        if (report) {
+            report.status = newStatus;
+            report.assignedTo = newAssignedTo;
+            if (reportType === 'damage') {
+                report.estimatedDate = newEstimatedDate;
+            }
+            saveState();
+            showMessage(`Report updated successfully!`);
+            renderAuthorityDashboard();
+        } else {
+            showMessage("Error: Report not found.");
+        }
+    }
+
+
+    // --- Application Logic Functions ---
+    function handleLogin(event) {
+        event.preventDefault();
+        const form = event.target;
+        const role = form.role.value;
+
+        if (role === 'citizen') {
+            const username = form.username.value;
+            const phoneNumber = form.phoneNumber.value;
+            const user = citizens.find(u => u.username === username && u.phoneNumber === phoneNumber);
+            if (user) {
+                currentCitizen = user; // Store the logged-in citizen
+                saveState(); // Save the current citizen state
+                showMessage("OTP sent successfully!");
+                renderOtpVerificationPage();
+            } else {
+                showMessage("Invalid username or phone number. Please try again.");
+            }
+        } else if (role === 'worker') {
+            const workerId = form.workerId.value;
+            const phoneNumber = form.phoneNumber.value;
+            const password = form.password.value;
+            const user = workers.find(u => u.workerId === workerId && u.phoneNumber === phoneNumber && u.password === password);
+            if (user) {
+                isLoggedIn = true;
+                currentWorker = user; // Store the logged-in worker
+                saveState();
+                renderApp();
+            } else {
+                showMessage("Invalid credentials. Please try again.");
+            }
+        } else if (role === 'authority') {
+            const authorityId = form.authorityId.value;
+            const username = form.username.value;
+            const password = form.password.value;
+            const user = authorities.find(u => u.authorityId === authorityId && u.username === username && u.password === password);
+            if (user) {
+                isLoggedIn = true;
+                currentAuthority = user;
+                saveState();
+                renderApp();
+            } else {
+                showMessage("Invalid credentials. Please try again.");
+            }
+        }
+    }
+    
+    // New function to handle OTP verification
+    function handleOtpVerification(event) {
+        event.preventDefault();
+        const form = event.target;
+        const enteredOtp = form.otp.value;
+        const correctOtp = '123456'; // Hardcoded for prototype
+
+        if (enteredOtp === correctOtp) {
+            isLoggedIn = true;
+            saveState();
+            renderApp();
+            showMessage("Login successful!");
+        } else {
+            showMessage("Invalid OTP. Please try again.");
+        }
+    }
+
+    function handleSignup(event) {
+        event.preventDefault();
+        const form = event.target;
+        const role = form.role.value;
+        let newUser = {};
+        let userExists = false;
+
+        if (role === 'citizen') {
+            const username = form.username.value;
+            const phoneNumber = form.phoneNumber.value;
+            userExists = citizens.some(u => u.username === username || u.phoneNumber === phoneNumber);
+            newUser = { username, phoneNumber };
+            if (!userExists) {
+                citizens.push(newUser);
+                currentCitizen = newUser;
+            }
+        } else if (role === 'worker') {
+            const workerId = form.workerId.value;
+            const phoneNumber = form.phoneNumber.value;
+            const password = form.password.value;
+            userExists = workers.some(u => u.workerId === workerId || u.phoneNumber === phoneNumber);
+            newUser = { workerId, phoneNumber, password };
+            if (!userExists) {
+                workers.push(newUser);
+                currentWorker = newUser;
+            }
+        } else if (role === 'authority') {
+            const authorityId = form.authorityId.value;
+            const username = form.username.value;
+            const password = form.password.value;
+            userExists = authorities.some(u => u.authorityId === authorityId || u.username === username);
+            newUser = { authorityId, username, password };
+            if (!userExists) {
+                authorities.push(newUser);
+                currentAuthority = newUser;
+            }
+        }
+
+        if (userExists) {
+            showMessage("An account with this ID/username/phone number already exists. Please login.");
+        } else {
+            saveState();
+            isLoggedIn = true;
+            showMessage("Sign up successful! Logging you in...");
+            renderApp();
+        }
+    }
+
+    function logout() {
+        userRole = null;
+        isLoggedIn = false;
+        currentCitizen = null;
+        currentWorker = null;
+        currentAuthority = null;
+        saveState();
+        renderApp();
+    }
+
+    function handleReportSubmit(event) {
+        event.preventDefault();
+        const form = event.target;
+
+        // Safely get form values
+        const locationInput = form.querySelector('[name="location"]');
+        const descriptionInput = form.querySelector('[name="description"]');
+        const typeInput = form.querySelector('[name="reportType"]');
+
+        if (!locationInput || !descriptionInput || !typeInput) {
+            showMessage("Error: Form inputs not found. Please try again.");
+            return;
+        }
+
+        const location = locationInput.value;
+        const description = descriptionInput.value;
+        const type = typeInput.value;
+
+        // Ensure currentCitizen exists before accessing its properties
+        if (!currentCitizen) {
+            showMessage("Error: User details not found. Please log in again.");
+            renderLoginPage();
+            return;
+        }
+
+        if (type === 'damage') {
+            const newComplaint = {
+                id: Date.now(),
+                poleId: nextPoleId++,
+                location,
+                description,
+                status: 'New',
+                date: new Date().toLocaleDateString(),
+                type: 'damage',
+                reportedBy: currentCitizen.username // Save citizen's username
+            };
+            complaints.push(newComplaint);
+        } else {
+            const newRequest = {
+                id: Date.now(),
+                location,
+                description,
+                status: 'Requested', // Added status for new light requests
+                date: new Date().toLocaleDateString(),
+                type: 'new',
+                reportedBy: currentCitizen.username // Save citizen's username
+            };
+            requests.push(newRequest);
+        }
+        
+        saveState();
+        renderCitizenDashboard();
+        showMessage('Report submitted successfully!');
+    }
+
+    function updateStatus(poleId) {
+        // Check if currentWorker is logged in before proceeding
+        if (!currentWorker) {
+            showMessage("Error: Worker details not found. Please log in again.");
+            logout();
+            return;
+        }
+        
+        const complaint = complaints.find(c => c.poleId === poleId);
+        if (complaint) {
+            if (complaint.status === 'New') {
+                // If new, prompt for a date and assign to the current worker
+                complaint.assignedTo = currentWorker.workerId;
+                showDatePrompt(complaint.id);
+            } else if (complaint.status === 'In Progress') {
+                // If in progress, mark as completed
+                complaint.status = 'Completed';
+                showMessage(`Complaint for Pole ID ${complaint.poleId} is now Completed.`);
+                saveState();
+                renderWorkerDashboard();
+            }
+        }
+    }
+
+    function showDatePrompt(reportId) {
+        const modal = document.createElement('div');
+        modal.className = "fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50";
+        modal.innerHTML = `
+            <div class="card w-full max-w-sm">
+                <h3 class="text-xl font-semibold mb-4 text-center">Set Estimated Repair Date</h3>
+                <form id="date-form">
+                    <div class="space-y-2 mb-4">
+                        <label for="estimatedDate" class="block text-sm font-medium text-gray-700">Select Date</label>
+                        <input type="date" id="estimatedDate" class="form-input" required>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button type="button" id="cancel-date-btn" class="btn btn-secondary flex-1">Cancel</button>
+                        <button type="submit" class="btn btn-primary flex-1">Set Date</button>
+                    </div>
+                </form>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        document.getElementById('cancel-date-btn').addEventListener('click', () => {
+            modal.remove();
+        });
+
+        document.getElementById('date-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const dateInput = document.getElementById('estimatedDate');
+            const estimatedDate = dateInput.value;
+            
+            const complaint = complaints.find(c => c.id === reportId);
+            if (complaint) {
+                complaint.status = 'In Progress';
+                complaint.estimatedDate = estimatedDate;
+                saveState();
+                showMessage(`Repair for Pole ID ${complaint.poleId} is now In Progress. Est. Date: ${estimatedDate}`);
+                modal.remove();
+                renderWorkerDashboard();
+            }
+        });
+    }
+
+    function showAssignModal(reportId, event) {
+        event.stopPropagation(); // Prevent li click
+        const modal = document.createElement('div');
+        modal.className = "fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50";
+        modal.innerHTML = `
+            <div class="card w-full max-w-sm">
+                <h3 class="text-xl font-semibold mb-4 text-center">Assign Report to a Worker</h3>
+                <div class="space-y-4">
+                    ${workers.map(w => `
+                        <button onclick="assignWork(${reportId}, '${w.workerId}')" class="btn btn-primary w-full">${w.workerId}</button>
+                    `).join('')}
+                </div>
+                <button onclick="document.body.removeChild(this.closest('.fixed'))" class="btn btn-secondary w-full mt-4">Cancel</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    function assignWork(reportId, workerId) {
+        const report = [...complaints, ...requests].find(r => r.id === reportId);
+        if (report) {
+            report.assignedTo = workerId;
+            saveState();
+            showMessage(`Report assigned to Worker ${workerId}`);
+            renderAuthorityDashboard();
+            // Remove the modal
+            document.body.removeChild(document.querySelector('.fixed'));
+        }
+    }
+
+
+    function showMessage(message) {
+        // A simple message box instead of an alert()
+        const messageBox = document.createElement('div');
+        messageBox.className = "fixed bottom-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg z-50 text-sm opacity-0 transition-opacity duration-300";
+        messageBox.textContent = message;
+        document.body.appendChild(messageBox);
+        setTimeout(() => messageBox.style.opacity = '1', 10); // Fade in
+        setTimeout(() => messageBox.style.opacity = '0', 3000); // Fade out
+        setTimeout(() => messageBox.remove(), 3500);
+    }
+
+    // --- Initial App Render ---
+    function renderApp() {
+        // This is the key fix: clear the container first
+        appContainer.innerHTML = '';
+        
+        if (isLoggedIn) {
+            if (userRole === 'citizen') {
+                renderCitizenDashboard();
+            } else if (userRole === 'worker') {
+                renderWorkerDashboard();
+            } else if (userRole === 'authority') {
+                renderAuthorityDashboard();
+            }
+        } else {
+            // If a role is selected but not logged in, render the login form.
+            if (userRole === 'citizen') {
+                renderCitizenLoginForm();
+            } else if (userRole === 'worker') {
+                renderWorkerLoginForm();
+            } else if (userRole === 'authority') {
+                renderAuthorityLoginForm();
+            } else {
+                 // If no role is selected, render the main login page.
+                renderLoginPage();
+            }
+        }
+    }
+
+    // Load initial view
+    renderApp();
+</script>
+
+</body>
+</html>
