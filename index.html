@@ -1,3 +1,26 @@
+<!-- 
+/*******************************************************************************
+ * STREETLIGHT ALERT SYSTEM (HACKATHON PROTOTYPE)
+ * * This is a single-file, full-featured web application prototype designed
+ * for a hackathon environment. It simulates a three-role management system
+ * without requiring a backend server.
+ * * CORE TECHNOLOGIES:
+ * 1. HTML: Structure of the application.
+ * 2. Tailwind CSS: Styling and professional, responsive design.
+ * 3. JavaScript: All application logic, state management, and page rendering.
+ * * DATA PERSISTENCE:
+ * - Data (users, reports, status) is stored in the browser's localStorage.
+ * * KEY FEATURES:
+ * - Role-Based Access: Citizen, Worker, and Authority logins.
+ * - OTP Simulation: Realistic login flow for Citizens.
+ * - Citizen Reporting: Submit damaged light reports and new light requests.
+ * - Worker Management: View assigned tasks, **SORTED BY PRIORITY**, and update status.
+ * - Authority Oversight: View global reports, assign tasks/priority to workers, and edit report status.
+ * - **MAJOR UPDATE**: Citizen reporting now includes **Priority** selection (Low/Medium/High) as user input.
+ * - **DUPLICATION CHECK**: Report submission is rejected if the Pole ID already exists in a 'New' or 'In Progress' complaint.
+ * - **FIX**: Corrected Worker Dashboard button to pass Pole ID as a string, fixing the 'Start Work' button functionality.
+ *******************************************************************************/
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,11 +30,12 @@
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f9fafb;
             color: #1f2937;
+            /* DEEP TEAL GRADIENT FOR ELEGANCE - slightly richer for a classic feel */
+            background: linear-gradient(135deg, #0d5f57 0%, #178a7c 100%);
         }
         .container {
             max-width: 800px;
@@ -22,33 +46,40 @@
             background-color: white;
             padding: 2rem;
             border-radius: 1rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            /* Stronger shadow and a subtle border for a classic, framed look */
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4), 0 10px 20px -8px rgba(0, 0, 0, 0.15);
+            border: 1px solid #e5e7eb; /* Light border for definition */
         }
         .btn {
-            padding: 0.75rem 1.5rem;
+            padding: 0.85rem 1.5rem; 
             border-radius: 0.75rem;
-            font-weight: 600;
+            font-weight: 800; 
             transition: all 0.2s;
             cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); 
         }
+        /* Primary Teal Button */
         .btn-primary {
-            background-color: #312e81;
+            background-color: #0f766e; 
             color: white;
         }
         .btn-primary:hover {
-            background-color: #4338ca;
+            background-color: #14b8a6;
+            transform: translateY(-1px); 
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
         }
         .btn-secondary {
             background-color: #e5e7eb;
             color: #4b5563;
+            font-weight: 700; 
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
         .btn-secondary:hover {
             background-color: #d1d5db;
         }
         .form-input {
             padding: 0.75rem 1rem;
-            font-size: 1.125rem; /* text-lg */
+            font-size: 1.125rem; 
             border-radius: 0.5rem;
             border: 1px solid #d1d5db;
             box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -57,12 +88,34 @@
         }
         .form-input:focus {
             outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+            border-color: #14b8a6; 
+            box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.5);
+        }
+        .tag-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px; 
+            font-weight: 700;
+            font-size: 0.75rem;
+        }
+        .tag-priority {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px; 
+            font-weight: 700;
+            font-size: 0.75rem;
+        }
+        .role-card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .role-card:hover {
+            transform: scale(1.03);
+            box-shadow: 0 20px 40px -8px rgba(15, 118, 110, 0.4);
+        }
+        h1, h2 {
+             font-weight: 900; /* Super Extra-bold headers */
         }
     </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+<body class="flex items-center justify-center min-h-screen p-4">
 
 <div id="app-container" class="w-full max-w-2xl">
     <!-- Content will be dynamically rendered here -->
@@ -75,7 +128,7 @@
     let isLoggedIn = localStorage.getItem('isLoggedIn') === 'true'; // New state variable
     let complaints = JSON.parse(localStorage.getItem('complaints')) || [];
     let requests = JSON.parse(localStorage.getItem('requests')) || [];
-    let nextPoleId = parseInt(localStorage.getItem('nextPoleId')) || 1001;
+    // let nextPoleId = parseInt(localStorage.getItem('nextPoleId')) || 1001; // Pole ID is now user input
     
     // Global state for logged-in user details
     let currentCitizen = JSON.parse(localStorage.getItem('currentCitizen')) || null;
@@ -94,7 +147,7 @@
         localStorage.setItem('isLoggedIn', isLoggedIn);
         localStorage.setItem('complaints', JSON.stringify(complaints));
         localStorage.setItem('requests', JSON.stringify(requests));
-        localStorage.setItem('nextPoleId', nextPoleId);
+        // localStorage.setItem('nextPoleId', nextPoleId); // Removed
         localStorage.setItem('citizens', JSON.stringify(citizens));
         localStorage.setItem('workers', JSON.stringify(workers));
         localStorage.setItem('authorities', JSON.stringify(authorities));
@@ -103,31 +156,63 @@
         localStorage.setItem('currentAuthority', JSON.stringify(currentAuthority));
     }
 
+    // --- Utility Functions for Styling ---
+    function getStatusTag(status) {
+        let color = '';
+        if (status === 'Completed') color = 'bg-green-100 text-green-700';
+        else if (status === 'In Progress') color = 'bg-yellow-100 text-yellow-700';
+        else if (status === 'New' || status === 'Requested') color = 'bg-blue-100 text-blue-700';
+        else color = 'bg-gray-100 text-gray-700';
+        return `<span class="tag-status ${color}">${status}</span>`;
+    }
+
+    function getPriorityTag(priority) {
+        let color = '';
+        if (priority === 'High') color = 'bg-red-100 text-red-700';
+        else if (priority === 'Medium') color = 'bg-yellow-100 text-yellow-700';
+        else if (priority === 'Low') color = 'bg-green-100 text-green-700';
+        else color = 'bg-gray-100 text-gray-700';
+        return `<span class="tag-priority ${color}">${priority || 'N/A'}</span>`;
+    }
+
     // --- UI Rendering Functions ---
     const appContainer = document.getElementById('app-container');
 
-    // Updated SVG logo with a right-shifted light cone
-    const logoSvg = `<svg class="h-16 w-16 mx-auto mb-4" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    // Updated SVG logo with a right-shifted light cone, color is now set by text-indigo-700 (which will reflect in the code as a dark text color)
+    const logoSvg = `<svg class="h-16 w-16 mx-auto mb-4 text-[#0f766e]" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
         <!-- Pole -->
-        <line x1="50" y1="95" x2="50" y2="15" stroke="black" stroke-width="6" />
+        <line x1="50" y1="95" x2="50" y2="15" stroke="currentColor" stroke-width="6" />
         <!-- Arm -->
-        <line x1="50" y1="15" x2="75" y2="15" stroke="black" stroke-width="6" />
+        <line x1="50" y1="15" x2="75" y2="15" stroke="currentColor" stroke-width="6" />
         <!-- Lamp Housing -->
-        <rect x="68" y="10" width="15" height="10" rx="2" fill="black" />
+        <rect x="68" y="10" width="15" height="10" rx="2" fill="currentColor" />
         <!-- Light Cone, now shifted more to the right -->
         <polygon points="75,20 110,95 40,95" fill="yellow" opacity="0.6" />
     </svg>`;
 
     function renderLoginPage() {
         appContainer.innerHTML = `
-            <div class="card text-center shadow-lg">
+            <div class="card text-center shadow-2xl">
                 ${logoSvg}
-                <h1 class="text-3xl font-bold text-gray-800 mb-6">Streetlight Alert System</h1>
-                <p class="text-gray-600 mb-8">Select your role to continue.</p>
-                <div class="flex flex-col space-y-4">
-                    <button onclick="selectRole('citizen')" class="btn btn-primary w-full">Citizen 🚶‍♂️</button>
-                    <button onclick="selectRole('worker')" class="btn btn-primary w-full">Worker 👷</button>
-                    <button onclick="selectRole('authority')" class="btn btn-primary w-full">Authority 🏛️</button>
+                <h1 class="text-4xl font-extrabold text-teal-700 mb-2">Streetlight Alert</h1>
+                <p class="text-lg text-gray-600 mb-8 font-semibold">Efficiently report and manage city infrastructure repairs.</p>
+                <h2 class="text-2xl font-extrabold text-gray-700 mb-6">Select Your Access Portal</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <button onclick="selectRole('citizen')" class="role-card p-6 bg-cyan-50 text-cyan-800 border border-cyan-200 rounded-xl shadow-md hover:bg-cyan-100">
+                        <span class="text-4xl block mb-2">🚶‍♂️</span>
+                        <span class="text-xl font-extrabold">Citizen</span>
+                        <p class="text-sm text-cyan-600 mt-1 font-medium">Report Issues & Track Status</p>
+                    </button>
+                    <button onclick="selectRole('worker')" class="role-card p-6 bg-teal-50 text-teal-800 border border-teal-200 rounded-xl shadow-md hover:bg-teal-100">
+                        <span class="text-4xl block mb-2">👷</span>
+                        <span class="text-xl font-extrabold">Worker</span>
+                        <p class="text-sm text-teal-600 mt-1 font-medium">Receive & Resolve Assigned Tasks</p>
+                    </button>
+                    <button onclick="selectRole('authority')" class="role-card p-6 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl shadow-md hover:bg-emerald-100">
+                        <span class="text-4xl block mb-2">🏛️</span>
+                        <span class="text-xl font-extrabold">Authority</span>
+                        <p class="text-sm text-emerald-600 mt-1 font-medium">Manage Priorities & Oversight</p>
+                    </button>
                 </div>
             </div>
         `;
@@ -138,13 +223,13 @@
         appContainer.innerHTML = `
             <div class="card text-center shadow-lg">
                 ${logoSvg}
-                <h1 class="text-3xl font-bold text-gray-800 mb-6">${role.charAt(0).toUpperCase() + role.slice(1)} Access</h1>
-                <p class="text-gray-600 mb-8">Select an option to proceed.</p>
+                <h1 class="text-3xl font-extrabold text-gray-800 mb-6">${role.charAt(0).toUpperCase() + role.slice(1)} Access Portal</h1>
+                <p class="text-gray-600 mb-8 font-medium">Select an option to proceed.</p>
                 <div class="flex flex-col space-y-4">
-                    <button onclick="renderCorrectForm('login')" class="btn btn-primary w-full">Login</button>
-                    <button onclick="renderCorrectForm('signup')" class="btn btn-secondary w-full">Sign Up</button>
+                    <button onclick="renderCorrectForm('login')" class="btn btn-primary w-full py-3 text-lg">Login</button>
+                    <button onclick="renderCorrectForm('signup')" class="btn btn-secondary w-full py-3 text-lg">Sign Up</button>
                 </div>
-                <button onclick="logout()" class="btn btn-secondary mt-4 w-full">Back to Role Selection</button>
+                <button onclick="logout()" class="btn btn-secondary mt-4 w-full py-3 text-lg">Back to Role Selection</button>
             </div>
         `;
     }
@@ -171,23 +256,30 @@
 
     // --- Login Forms ---
     function renderCitizenLoginForm() {
+        // Ensure OTP timer is cleared if navigating from OTP page
+        if (otpTimer) clearInterval(otpTimer);
+        
         appContainer.innerHTML = `
-            <div class="card shadow-lg">
+            <div class="card shadow-2xl">
                 ${logoSvg}
-                <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Citizen Login</h1>
-                <form id="login-form" class="space-y-4">
+                <h1 class="text-3xl font-extrabold text-gray-800 mb-2 text-center">Citizen Login 🚶‍♂️</h1>
+                <p class="text-sm text-gray-500 mb-6 text-center font-medium">Verify your identity to submit and track reports.</p>
+                <form id="login-form" class="space-y-6">
                     <input type="hidden" name="role" value="citizen">
-                    <div>
-                        <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
-                        <input type="text" id="username" name="username" class="form-input" required>
+                    
+                    <div class="relative">
+                        <input type="text" id="username" name="username" class="form-input peer pt-5 pb-2" placeholder=" " required>
+                        <label for="username" class="absolute left-3 top-1 text-sm text-gray-500 transition-all transform origin-top-left peer-placeholder-shown:text-lg peer-placeholder-shown:top-3 peer-focus:text-sm peer-focus:top-1 peer-focus:text-teal-600">Username</label>
                     </div>
-                    <div>
-                        <label for="phoneNumber" class="block text-sm font-medium text-gray-700">Phone Number</label>
-                        <input type="tel" id="phoneNumber" name="phoneNumber" class="form-input" required>
+
+                    <div class="relative">
+                        <input type="tel" id="phoneNumber" name="phoneNumber" class="form-input peer pt-5 pb-2" placeholder=" " required>
+                        <label for="phoneNumber" class="absolute left-3 top-1 text-sm text-gray-500 transition-all transform origin-top-left peer-placeholder-shown:text-lg peer-placeholder-shown:top-3 peer-focus:text-sm peer-focus:top-1 peer-focus:text-teal-600">Phone Number</label>
                     </div>
-                    <button type="submit" class="btn btn-primary w-full">Verify & Login</button>
+
+                    <button type="submit" class="btn btn-primary w-full py-3 text-lg">Verify & Login</button>
                 </form>
-                <button onclick="renderLoginOrSignupPage('citizen')" class="btn btn-secondary mt-4 w-full">Back</button>
+                <button onclick="renderLoginOrSignupPage('citizen')" class="btn btn-secondary mt-4 w-full py-3 text-lg">Back</button>
             </div>
         `;
         document.getElementById('login-form').addEventListener('submit', handleLogin);
@@ -200,23 +292,31 @@
         let timeLeft = 60;
         
         appContainer.innerHTML = `
-            <div class="card shadow-lg">
+            <div class="card shadow-2xl">
                 ${logoSvg}
-                <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">OTP Verification</h1>
-                <p class="text-gray-600 mb-4 text-center">A 6-digit OTP has been sent to your phone number.</p>
-                <form id="otp-form" class="space-y-4">
-                    <div>
-                        <label for="otp" class="block text-sm font-medium text-gray-700">Enter OTP</label>
-                        <input type="text" id="otp" name="otp" maxlength="6" class="form-input text-center" required>
+                <h1 class="text-3xl font-extrabold text-gray-800 mb-2 text-center">Secure OTP Verification</h1>
+                <p class="text-gray-600 mb-6 text-center text-sm font-medium">A 6-digit verification code has been sent to your device.</p>
+                <form id="otp-form" class="space-y-6">
+                    <div class="relative">
+                        <input type="text" id="otp" name="otp" maxlength="6" class="form-input text-center peer pt-5 pb-2 tracking-widest" placeholder=" " required>
+                        <label for="otp" class="absolute left-1/2 -translate-x-1/2 top-1 text-sm text-gray-500 transition-all transform origin-top-left peer-placeholder-shown:text-lg peer-placeholder-shown:top-3 peer-focus:text-sm peer-focus:top-1 peer-focus:text-teal-600">Enter OTP</label>
                     </div>
-                    <div class="text-center text-sm font-medium text-gray-500" id="timer-display">Time left: 60s</div>
-                    <button type="submit" id="verify-btn" class="btn btn-primary w-full">Verify OTP</button>
+                    <div class="text-center text-sm font-bold" id="timer-display">Time left: 60s</div>
+                    <button type="submit" id="verify-btn" class="btn btn-primary w-full py-3 text-lg">Verify Code</button>
                 </form>
-                <button onclick="renderCitizenLoginForm()" class="btn btn-secondary mt-4 w-full">Back</button>
+                <button id="back-to-login-btn" class="btn btn-secondary mt-4 w-full py-3 text-lg">Back to Login</button>
             </div>
         `;
         document.getElementById('otp-form').addEventListener('submit', handleOtpVerification);
         
+        // --- FIX: Add event listener to clear timer on back button ---
+        document.getElementById('back-to-login-btn').addEventListener('click', () => {
+            if (otpTimer) clearInterval(otpTimer);
+            otpTimer = null;
+            renderCitizenLoginForm();
+        });
+
+
         // Start the countdown timer
         const timerDisplay = document.getElementById('timer-display');
         const verifyBtn = document.getElementById('verify-btn');
@@ -226,8 +326,9 @@
             timerDisplay.textContent = `Time left: ${timeLeft}s`;
             if (timeLeft <= 0) {
                 clearInterval(otpTimer);
+                otpTimer = null; // Important: reset global variable
                 verifyBtn.disabled = true;
-                verifyBtn.classList.add('bg-gray-400');
+                verifyBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
                 verifyBtn.classList.remove('btn-primary');
                 timerDisplay.textContent = "Time expired. Please try again.";
             }
@@ -237,26 +338,31 @@
 
     function renderWorkerLoginForm() {
         appContainer.innerHTML = `
-            <div class="card shadow-lg">
+            <div class="card shadow-2xl">
                 ${logoSvg}
-                <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Worker Login</h1>
-                <form id="login-form" class="space-y-4">
+                <h1 class="text-3xl font-extrabold text-gray-800 mb-2 text-center">Worker Login 👷</h1>
+                <p class="text-sm text-gray-500 mb-6 text-center font-medium">Access your repair assignments and service schedule.</p>
+                <form id="login-form" class="space-y-6">
                     <input type="hidden" name="role" value="worker">
-                    <div>
-                        <label for="workerId" class="block text-sm font-medium text-gray-700">Worker ID</label>
-                        <input type="text" id="workerId" name="workerId" class="form-input" required>
+                    
+                    <div class="relative">
+                        <input type="text" id="workerId" name="workerId" class="form-input peer pt-5 pb-2" placeholder=" " required>
+                        <label for="workerId" class="absolute left-3 top-1 text-sm text-gray-500 transition-all transform origin-top-left peer-placeholder-shown:text-lg peer-placeholder-shown:top-3 peer-focus:text-sm peer-focus:top-1 peer-focus:text-teal-600">Worker ID</label>
                     </div>
-                    <div>
-                        <label for="phoneNumber" class="block text-sm font-medium text-gray-700">Phone Number</label>
-                        <input type="tel" id="phoneNumber" name="phoneNumber" class="form-input" required>
+
+                    <div class="relative">
+                        <input type="tel" id="phoneNumber" name="phoneNumber" class="form-input peer pt-5 pb-2" placeholder=" " required>
+                        <label for="phoneNumber" class="absolute left-3 top-1 text-sm text-gray-500 transition-all transform origin-top-left peer-placeholder-shown:text-lg peer-placeholder-shown:top-3 peer-focus:text-sm peer-focus:top-1 peer-focus:text-teal-600">Phone Number</label>
                     </div>
-                    <div>
-                        <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-                        <input type="password" id="password" name="password" class="form-input" required>
+
+                    <div class="relative">
+                        <input type="password" id="password" name="password" class="form-input peer pt-5 pb-2" placeholder=" " required>
+                        <label for="password" class="absolute left-3 top-1 text-sm text-gray-500 transition-all transform origin-top-left peer-placeholder-shown:text-lg peer-placeholder-shown:top-3 peer-focus:text-sm peer-focus:top-1 peer-focus:text-teal-600">Password</label>
                     </div>
-                    <button type="submit" class="btn btn-primary w-full">Login</button>
+                    
+                    <button type="submit" class="btn btn-primary w-full py-3 text-lg">Secure Login</button>
                 </form>
-                <button onclick="renderLoginOrSignupPage('worker')" class="btn btn-secondary mt-4 w-full">Back</button>
+                <button onclick="renderLoginOrSignupPage('worker')" class="btn btn-secondary mt-4 w-full py-3 text-lg">Back</button>
             </div>
         `;
         document.getElementById('login-form').addEventListener('submit', handleLogin);
@@ -264,26 +370,31 @@
 
     function renderAuthorityLoginForm() {
         appContainer.innerHTML = `
-            <div class="card shadow-lg">
+            <div class="card shadow-2xl">
                 ${logoSvg}
-                <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Authority Login</h1>
-                <form id="login-form" class="space-y-4">
+                <h1 class="text-3xl font-extrabold text-gray-800 mb-2 text-center">Authority Login 🏛️</h1>
+                <p class="text-sm text-gray-500 mb-6 text-center font-medium">Access global oversight and priority management tools.</p>
+                <form id="login-form" class="space-y-6">
                     <input type="hidden" name="role" value="authority">
-                    <div>
-                        <label for="authorityId" class="block text-sm font-medium text-gray-700">Authority ID</label>
-                        <input type="text" id="authorityId" name="authorityId" class="form-input" required>
+                    
+                    <div class="relative">
+                        <input type="text" id="authorityId" name="authorityId" class="form-input peer pt-5 pb-2" placeholder=" " required>
+                        <label for="authorityId" class="absolute left-3 top-1 text-sm text-gray-500 transition-all transform origin-top-left peer-placeholder-shown:text-lg peer-placeholder-shown:top-3 peer-focus:text-sm peer-focus:top-1 peer-focus:text-teal-600">Authority ID</label>
                     </div>
-                    <div>
-                        <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
-                        <input type="text" id="username" name="username" class="form-input" required>
+
+                    <div class="relative">
+                        <input type="text" id="username" name="username" class="form-input peer pt-5 pb-2" placeholder=" " required>
+                        <label for="username" class="absolute left-3 top-1 text-sm text-gray-500 transition-all transform origin-top-left peer-placeholder-shown:text-lg peer-placeholder-shown:top-3 peer-focus:text-sm peer-focus:top-1 peer-focus:text-teal-600">Username</label>
                     </div>
-                    <div>
-                        <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-                        <input type="password" id="password" name="password" class="form-input" required>
+
+                    <div class="relative">
+                        <input type="password" id="password" name="password" class="form-input peer pt-5 pb-2" placeholder=" " required>
+                        <label for="password" class="absolute left-3 top-1 text-sm text-gray-500 transition-all transform origin-top-left peer-placeholder-shown:text-lg peer-placeholder-shown:top-3 peer-focus:text-sm peer-focus:top-1 peer-focus:text-teal-600">Password</label>
                     </div>
-                    <button type="submit" class="btn btn-primary w-full">Login</button>
+                    
+                    <button type="submit" class="btn btn-primary w-full py-3 text-lg">Secure Login</button>
                 </form>
-                <button onclick="renderLoginOrSignupPage('authority')" class="btn btn-secondary mt-4 w-full">Back</button>
+                <button onclick="renderLoginOrSignupPage('authority')" class="btn btn-secondary mt-4 w-full py-3 text-lg">Back</button>
             </div>
         `;
         document.getElementById('login-form').addEventListener('submit', handleLogin);
@@ -292,22 +403,26 @@
     // --- Sign Up Forms ---
     function renderCitizenSignupForm() {
         appContainer.innerHTML = `
-            <div class="card shadow-lg">
+            <div class="card shadow-2xl">
                 ${logoSvg}
-                <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Citizen Sign Up</h1>
-                <form id="signup-form" class="space-y-4">
+                <h1 class="text-3xl font-extrabold text-gray-800 mb-2 text-center">Citizen Sign Up 🚶‍♂️</h1>
+                <p class="text-sm text-gray-500 mb-6 text-center font-medium">Create a new account to report issues quickly.</p>
+                <form id="signup-form" class="space-y-6">
                     <input type="hidden" name="role" value="citizen">
-                    <div>
-                        <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
-                        <input type="text" id="username" name="username" class="form-input" required>
+                    
+                    <div class="relative">
+                        <input type="text" id="username" name="username" class="form-input peer pt-5 pb-2" placeholder=" " required>
+                        <label for="username" class="absolute left-3 top-1 text-sm text-gray-500 transition-all transform origin-top-left peer-placeholder-shown:text-lg peer-placeholder-shown:top-3 peer-focus:text-sm peer-focus:top-1 peer-focus:text-teal-600">Username</label>
                     </div>
-                    <div>
-                        <label for="phoneNumber" class="block text-sm font-medium text-gray-700">Phone Number</label>
-                        <input type="tel" id="phoneNumber" name="phoneNumber" class="form-input" required>
+                    
+                    <div class="relative">
+                        <input type="tel" id="phoneNumber" name="phoneNumber" class="form-input peer pt-5 pb-2" placeholder=" " required>
+                        <label for="phoneNumber" class="absolute left-3 top-1 text-sm text-gray-500 transition-all transform origin-top-left peer-placeholder-shown:text-lg peer-placeholder-shown:top-3 peer-focus:text-sm peer-focus:top-1 peer-focus:text-teal-600">Phone Number</label>
                     </div>
-                    <button type="submit" class="btn btn-primary w-full">Sign Up</button>
+                    
+                    <button type="submit" class="btn btn-primary w-full py-3 text-lg">Create Account</button>
                 </form>
-                <button onclick="renderLoginOrSignupPage('citizen')" class="btn btn-secondary mt-4 w-full">Back</button>
+                <button onclick="renderLoginOrSignupPage('citizen')" class="btn btn-secondary mt-4 w-full py-3 text-lg">Back</button>
             </div>
         `;
         document.getElementById('signup-form').addEventListener('submit', handleSignup);
@@ -315,26 +430,31 @@
     
     function renderWorkerSignupForm() {
         appContainer.innerHTML = `
-            <div class="card shadow-lg">
+            <div class="card shadow-2xl">
                 ${logoSvg}
-                <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Worker Sign Up</h1>
-                <form id="signup-form" class="space-y-4">
+                <h1 class="text-3xl font-extrabold text-gray-800 mb-2 text-center">Worker Sign Up 👷</h1>
+                <p class="text-sm text-gray-500 mb-6 text-center font-medium">Register your unique Worker ID and password.</p>
+                <form id="signup-form" class="space-y-6">
                     <input type="hidden" name="role" value="worker">
-                    <div>
-                        <label for="workerId" class="block text-sm font-medium text-gray-700">Worker ID</label>
-                        <input type="text" id="workerId" name="workerId" class="form-input" required>
+                    
+                    <div class="relative">
+                        <input type="text" id="workerId" name="workerId" class="form-input peer pt-5 pb-2" placeholder=" " required>
+                        <label for="workerId" class="absolute left-3 top-1 text-sm text-gray-500 transition-all transform origin-top-left peer-placeholder-shown:text-lg peer-placeholder-shown:top-3 peer-focus:text-sm peer-focus:top-1 peer-focus:text-teal-600">Worker ID</label>
                     </div>
-                    <div>
-                        <label for="phoneNumber" class="block text-sm font-medium text-gray-700">Phone Number</label>
-                        <input type="tel" id="phoneNumber" name="phoneNumber" class="form-input" required>
+
+                    <div class="relative">
+                        <input type="tel" id="phoneNumber" name="phoneNumber" class="form-input peer pt-5 pb-2" placeholder=" " required>
+                        <label for="phoneNumber" class="absolute left-3 top-1 text-sm text-gray-500 transition-all transform origin-top-left peer-placeholder-shown:text-lg peer-placeholder-shown:top-3 peer-focus:text-sm peer-focus:top-1 peer-focus:text-teal-600">Phone Number</label>
                     </div>
-                    <div>
-                        <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-                        <input type="password" id="password" name="password" class="form-input" required>
+
+                    <div class="relative">
+                        <input type="password" id="password" name="password" class="form-input peer pt-5 pb-2" placeholder=" " required>
+                        <label for="password" class="absolute left-3 top-1 text-sm text-gray-500 transition-all transform origin-top-left peer-placeholder-shown:text-lg peer-placeholder-shown:top-3 peer-focus:text-sm peer-focus:top-1 peer-focus:text-teal-600">Password</label>
                     </div>
-                    <button type="submit" class="btn btn-primary w-full">Sign Up</button>
+                    
+                    <button type="submit" class="btn btn-primary w-full py-3 text-lg">Create Account</button>
                 </form>
-                <button onclick="renderLoginOrSignupPage('worker')" class="btn btn-secondary mt-4 w-full">Back</button>
+                <button onclick="renderLoginOrSignupPage('worker')" class="btn btn-secondary mt-4 w-full py-3 text-lg">Back</button>
             </div>
         `;
         document.getElementById('signup-form').addEventListener('submit', handleSignup);
@@ -342,26 +462,31 @@
     
     function renderAuthoritySignupForm() {
         appContainer.innerHTML = `
-            <div class="card shadow-lg">
+            <div class="card shadow-2xl">
                 ${logoSvg}
-                <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Authority Sign Up</h1>
-                <form id="signup-form" class="space-y-4">
+                <h1 class="text-3xl font-extrabold text-gray-800 mb-2 text-center">Authority Sign Up 🏛️</h1>
+                <p class="text-sm text-gray-500 mb-6 text-center font-medium">Register your management credentials.</p>
+                <form id="signup-form" class="space-y-6">
                     <input type="hidden" name="role" value="authority">
-                    <div>
-                        <label for="authorityId" class="block text-sm font-medium text-gray-700">Authority ID</label>
-                        <input type="text" id="authorityId" name="authorityId" class="form-input" required>
+                    
+                    <div class="relative">
+                        <input type="text" id="authorityId" name="authorityId" class="form-input peer pt-5 pb-2" placeholder=" " required>
+                        <label for="authorityId" class="absolute left-3 top-1 text-sm text-gray-500 transition-all transform origin-top-left peer-placeholder-shown:text-lg peer-placeholder-shown:top-3 peer-focus:text-sm peer-focus:top-1 peer-focus:text-teal-600">Authority ID</label>
                     </div>
-                    <div>
-                        <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
-                        <input type="text" id="username" name="username" class="form-input" required>
+
+                    <div class="relative">
+                        <input type="text" id="username" name="username" class="form-input peer pt-5 pb-2" placeholder=" " required>
+                        <label for="username" class="absolute left-3 top-1 text-sm text-gray-500 transition-all transform origin-top-left peer-placeholder-shown:text-lg peer-placeholder-shown:top-3 peer-focus:text-sm peer-focus:top-1 peer-focus:text-teal-600">Username</label>
                     </div>
-                    <div>
-                        <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-                        <input type="password" id="password" name="password" class="form-input" required>
+
+                    <div class="relative">
+                        <input type="password" id="password" name="password" class="form-input peer pt-5 pb-2" placeholder=" " required>
+                        <label for="password" class="absolute left-3 top-1 text-sm text-gray-500 transition-all transform origin-top-left peer-placeholder-shown:text-lg peer-placeholder-shown:top-3 peer-focus:text-sm peer-focus:top-1 peer-focus:text-teal-600">Password</label>
                     </div>
-                    <button type="submit" class="btn btn-primary w-full">Sign Up</button>
+                    
+                    <button type="submit" class="btn btn-primary w-full py-3 text-lg">Create Account</button>
                 </form>
-                <button onclick="renderLoginOrSignupPage('authority')" class="btn btn-secondary mt-4 w-full">Back</button>
+                <button onclick="renderLoginOrSignupPage('authority')" class="btn btn-secondary mt-4 w-full py-3 text-lg">Back</button>
             </div>
         `;
         document.getElementById('signup-form').addEventListener('submit', handleSignup);
@@ -377,32 +502,37 @@
         
         appContainer.innerHTML = `
             <div class="flex items-center justify-between mb-6">
-                <h1 class="text-3xl font-bold text-gray-800">Citizen Dashboard</h1>
-                <button onclick="logout()" class="btn btn-secondary">Logout</button>
+                <h1 class="text-3xl font-extrabold text-gray-800">Citizen Dashboard</h1>
+                <button onclick="logout()" class="btn btn-secondary py-2 text-base">Logout</button>
             </div>
 
             <div class="card mb-6">
-                <h2 class="text-2xl font-semibold text-gray-700 mb-4">Report an Issue</h2>
+                <h2 class="text-2xl font-extrabold text-gray-700 mb-4">Report an Issue</h2>
                 <div class="flex flex-col md:flex-row md:space-x-4">
-                    <button onclick="renderReportForm('damage')" class="btn btn-primary w-full mb-2 md:mb-0">Report Damaged Light 💡</button>
-                    <button onclick="renderReportForm('new')" class="btn btn-primary w-full">Request New Streetlight ✨</button>
+                    <button onclick="renderReportForm('damage')" class="btn btn-primary w-full mb-2 md:mb-0 py-3 text-lg">Report Damaged Light 💡</button>
+                    <button onclick="renderReportForm('new')" class="btn btn-primary w-full py-3 text-lg">Request New Streetlight ✨</button>
                 </div>
             </div>
 
             <div class="card">
-                <h2 class="text-2xl font-semibold text-gray-700 mb-4">Your Recent Reports</h2>
+                <h2 class="text-2xl font-extrabold text-gray-700 mb-4">Your Recent Reports</h2>
                 ${allReports.length > 0 ? `
                     <ul class="space-y-4">
                         ${allReports.map(report => `
-                            <li class="p-4 bg-gray-50 rounded-lg flex justify-between items-center">
-                                <div>
-                                    <p class="font-semibold text-gray-800">${report.type === 'damage' ? 'Damaged Light Report' : 'New Light Request'}</p>
-                                    <p class="text-sm text-gray-500">${report.location}</p>
-                                    ${report.poleId ? `<p class="text-sm text-gray-500">Pole ID: <span class="font-bold text-gray-700">${report.poleId}</span></p>` : ''}
-                                    ${report.estimatedDate ? `<p class="text-sm text-gray-500">Est. Repair Date: <span class="font-bold text-gray-700">${report.estimatedDate}</span></p>` : ''}
+                            <li class="p-4 bg-gray-50 rounded-lg flex justify-between items-center border border-gray-200">
+                                <div class="space-y-1">
+                                    <p class="font-bold text-gray-800">${report.type === 'damage' ? 'Damaged Light Report' : 'New Light Request'}</p>
+                                    <p class="text-sm text-gray-500 flex items-center space-x-2">
+                                        <span><span class="font-bold text-gray-700">Location:</span> ${report.location}</span>
+                                        ${report.poleId ? `<span class="text-gray-400">|</span> <span><span class="font-bold text-gray-700">Pole ID:</span> ${report.poleId}</span>` : ''}
+                                    </p>
+                                    <p class="text-sm text-gray-500 font-bold">
+                                        <span class="text-gray-700">Est. Date:</span> ${report.estimatedDate || 'N/A'}
+                                    </p>
                                 </div>
-                                <div class="text-sm font-medium ${report.status === 'Completed' ? 'text-green-600' : report.status === 'In Progress' ? 'text-yellow-600' : report.status === 'New' || report.status === 'Requested' ? 'text-blue-600' : 'text-blue-600'}">
-                                    ${report.status || 'Reported'}
+                                <div class="flex flex-col items-end space-y-1">
+                                    ${getStatusTag(report.status)}
+                                    ${report.priority ? getPriorityTag(report.priority) : ''}
                                 </div>
                             </li>
                         `).join('')}
@@ -420,32 +550,48 @@
         appContainer.innerHTML = `
             <div class="card">
                 <div class="flex items-center justify-between mb-6">
-                    <h2 class="text-2xl font-semibold text-gray-700">${title}</h2>
-                    <button onclick="renderCitizenDashboard()" class="btn btn-secondary">Back</button>
+                    <h2 class="text-2xl font-extrabold text-gray-700">${title}</h2>
+                    <button onclick="renderCitizenDashboard()" class="btn btn-secondary py-2 text-base">Back</button>
                 </div>
                 
                 <form id="report-form" class="space-y-4">
                     <input type="hidden" name="reportType" value="${type}">
+                    
+                    ${type === 'damage' ? `
                     <div class="space-y-2">
-                        <label for="location" class="block text-gray-700 font-medium">Location</label>
+                        <label for="poleId" class="block text-gray-700 font-bold">Pole ID (Required)</label>
+                        <input type="text" id="poleId" name="poleId" placeholder="e.g., 1045" class="form-input" required>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label for="priority" class="block text-gray-700 font-bold">Priority Suggestion</label>
+                        <select id="priority" name="priority" class="form-input" required>
+                            <option value="Low">Low (General outage, low traffic area)</option>
+                            <option value="Medium">Medium (Major road, intermittent function)</option>
+                            <option value="High">High (Total blackout, high crime/traffic area)</option>
+                        </select>
+                    </div>` : ''}
+
+                    <div class="space-y-2">
+                        <label for="location" class="block text-gray-700 font-bold">Location</label>
                         <div class="flex space-x-2">
                             <input type="text" id="location" name="location" placeholder="e.g., Main St & Oak Ave" class="form-input" required>
-                            <button type="button" id="geolocation-btn" class="btn btn-secondary whitespace-nowrap">Use My Current Location</button>
+                            <button type="button" id="geolocation-btn" class="btn btn-secondary whitespace-nowrap py-2 text-base">Use My Current Location</button>
                         </div>
                     </div>
                     
                     <div class="space-y-2">
-                        <label for="description" class="block text-gray-700 font-medium">Description</label>
+                        <label for="description" class="block text-gray-700 font-bold">Description</label>
                         <textarea id="description" name="description" rows="4" placeholder="${placeholder}" class="form-input" required></textarea>
                     </div>
 
                     ${type === 'damage' ? `
                     <div class="space-y-2">
-                        <label for="photo" class="block text-gray-700 font-medium">Photo (Optional)</label>
-                        <input type="file" id="photo" name="photo" accept="image/*" class="w-full text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
+                        <label for="photo" class="block text-gray-700 font-bold">Photo (Optional)</label>
+                        <input type="file" id="photo" name="photo" accept="image/*" class="w-full text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100">
                     </div>` : ''}
 
-                    <button type="submit" class="btn btn-primary w-full">Submit Report</button>
+                    <button type="submit" class="btn btn-primary w-full py-3 text-lg">Submit Report</button>
                 </form>
             </div>
         `;
@@ -487,33 +633,48 @@
 
 
     function renderWorkerDashboard() {
+        // Check if worker data is present
+        if (!currentWorker) {
+            showMessage("Worker data missing. Please log in.");
+            logout();
+            return;
+        }
+
         // Filter complaints and requests assigned to the current worker
         const assignedComplaints = complaints.filter(c => c.assignedTo === currentWorker.workerId);
         const assignedRequests = requests.filter(r => r.assignedTo === currentWorker.workerId);
 
+        // Function to sort by priority: High (0), Medium (1), Low (2), N/A (3)
+        const priorityOrder = { 'High': 1, 'Medium': 2, 'Low': 3, 'N/A': 4, undefined: 4 };
+        assignedComplaints.sort((a, b) => {
+            return (priorityOrder[a.priority] || 4) - (priorityOrder[b.priority] || 4);
+        });
+
         appContainer.innerHTML = `
             <div class="flex items-center justify-between mb-6">
-                <h1 class="text-3xl font-bold text-gray-800">Worker Dashboard</h1>
-                <button onclick="logout()" class="btn btn-secondary">Logout</button>
+                <h1 class="text-3xl font-extrabold text-gray-800">Worker Dashboard</h1>
+                <button onclick="logout()" class="btn btn-secondary py-2 text-base">Logout</button>
             </div>
 
             <div class="card mb-6">
-                <h2 class="text-2xl font-semibold text-gray-700 mb-4">My Assigned Complaints</h2>
+                <h2 class="text-2xl font-extrabold text-gray-700 mb-4">My Assigned Complaints</h2>
                 ${assignedComplaints.length > 0 ? `
                     <ul class="space-y-4">
                         ${assignedComplaints.map(c => `
-                            <li class="p-4 bg-gray-50 rounded-lg flex flex-col md:flex-row md:justify-between md:items-center">
-                                <div class="mb-2 md:mb-0">
-                                    <p class="text-sm text-gray-500">Pole ID: <span class="font-bold text-gray-700">${c.poleId}</span></p>
-                                    <p class="font-semibold text-gray-800">${c.location}</p>
-                                    <p class="text-sm text-gray-600 truncate max-w-sm">${c.description}</p>
-                                    ${c.estimatedDate ? `<p class="text-sm text-gray-500">Est. Repair Date: <span class="font-bold text-gray-700">${c.estimatedDate}</span></p>` : ''}
+                            <li class="p-4 bg-gray-50 rounded-lg flex flex-col md:flex-row md:justify-between md:items-center border border-gray-200">
+                                <div class="mb-2 md:mb-0 space-y-1">
+                                    <p class="text-sm text-gray-500 flex items-center space-x-2">
+                                        <span><span class="font-extrabold text-gray-700">Pole ID:</span> ${c.poleId}</span>
+                                        <span class="text-gray-400">|</span> <span><span class="font-extrabold text-gray-700">Reported:</span> ${c.reportedBy}</span>
+                                    </p>
+                                    <p class="font-extrabold text-gray-800">${c.location}</p>
+                                    <p class="text-sm text-gray-600 truncate max-w-sm">Details: ${c.description}</p>
                                 </div>
-                                <div class="flex items-center space-x-2">
-                                    <span class="text-sm font-medium ${c.status === 'Completed' ? 'text-green-600' : c.status === 'In Progress' ? 'text-yellow-600' : 'text-blue-600'}">
-                                        Status: ${c.status}
-                                    </span>
-                                    <button onclick="updateStatus(${c.poleId})" class="btn btn-primary text-sm px-3 py-1">
+                                <div class="flex flex-col items-end md:items-center space-y-1 md:space-y-0 md:space-x-3 md:flex-row">
+                                    ${c.estimatedDate ? `<span class="text-xs text-gray-500 font-bold whitespace-nowrap">Due: ${c.estimatedDate}</span>` : ''}
+                                    ${c.priority ? getPriorityTag(c.priority) : ''}
+                                    ${getStatusTag(c.status)}
+                                    <button onclick="updateStatus('${c.poleId}')" class="btn btn-primary text-sm px-3 py-1 mt-2 md:mt-0">
                                         ${c.status === 'New' ? 'Start Work' : 'Mark as Fixed'}
                                     </button>
                                 </div>
@@ -526,17 +687,18 @@
             </div>
             
             <div class="card">
-                 <h2 class="text-2xl font-semibold text-gray-700 mb-4">My Assigned Requests</h2>
+                 <h2 class="text-2xl font-extrabold text-gray-700 mb-4">My Assigned Requests</h2>
                  ${assignedRequests.length > 0 ? `
                     <ul class="space-y-4">
                         ${assignedRequests.map(r => `
-                            <li class="p-4 bg-gray-50 rounded-lg flex flex-col md:flex-row md:justify-between md:items-center">
+                            <li class="p-4 bg-gray-50 rounded-lg flex flex-col md:flex-row md:justify-between md:items-center border border-gray-200">
                                 <div class="mb-2 md:mb-0">
-                                    <p class="font-semibold text-gray-800">${r.location}</p>
+                                    <p class="font-extrabold text-gray-800">${r.location}</p>
                                     <p class="text-sm text-gray-600">${r.description}</p>
                                 </div>
-                                <div class="text-sm font-medium text-blue-600">
-                                    Status: ${r.status}
+                                <div class="flex items-center space-x-3">
+                                    ${r.priority ? getPriorityTag(r.priority) : ''}
+                                    ${getStatusTag(r.status)}
                                 </div>
                             </li>
                         `).join('')}
@@ -549,6 +711,13 @@
     }
 
     function renderAuthorityDashboard() {
+        // Check if authority data is present
+        if (!currentAuthority) {
+            showMessage("Authority data missing. Please log in.");
+            logout();
+            return;
+        }
+
         const totalComplaints = complaints.length + requests.length;
         const completedComplaints = complaints.filter(c => c.status === 'Completed').length;
         const inProgressComplaints = complaints.filter(c => c.status === 'In Progress').length;
@@ -560,50 +729,45 @@
         
         appContainer.innerHTML = `
             <div class="flex items-center justify-between mb-6">
-                <h1 class="text-3xl font-bold text-gray-800">Authority Dashboard</h1>
-                <button onclick="logout()" class="btn btn-secondary">Logout</button>
+                <h1 class="text-3xl font-extrabold text-gray-800">Authority Dashboard</h1>
+                <button onclick="logout()" class="btn btn-secondary py-2 text-base">Logout</button>
             </div>
 
-            <div class="card grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="bg-indigo-50 p-4 rounded-lg text-center">
-                    <p class="text-4xl font-bold text-indigo-700">${totalComplaints}</p>
-                    <p class="text-sm text-indigo-500">Total Reports & Requests</p>
+            <div class="card grid grid-cols-2 md:grid-cols-4 gap-4 text-center mb-6">
+                <div class="bg-teal-50 p-4 rounded-lg border border-teal-200">
+                    <p class="text-2xl font-extrabold text-teal-700">${totalComplaints}</p>
+                    <p class="text-xs text-teal-500 font-bold">Total Reports</p>
                 </div>
-                <div class="bg-green-50 p-4 rounded-lg text-center">
-                    <p class="text-4xl font-bold text-green-700">${completedComplaints}</p>
-                    <p class="text-sm text-green-500">Complaints Fixed</p>
+                <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                    <p class="text-2xl font-extrabold text-green-700">${completedComplaints}</p>
+                    <p class="text-xs text-green-500 font-bold">Fixed</p>
                 </div>
-                <div class="bg-yellow-50 p-4 rounded-lg text-center">
-                    <p class="text-4xl font-bold text-yellow-700">${inProgressComplaints}</p>
-                    <p class="text-sm text-yellow-500">In Progress</p>
+                <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                    <p class="text-2xl font-extrabold text-yellow-700">${inProgressComplaints}</p>
+                    <p class="text-xs text-yellow-500 font-bold">In Progress</p>
                 </div>
-                <div class="bg-blue-50 p-4 rounded-lg text-center">
-                    <p class="text-4xl font-bold text-blue-700">${newComplaints}</p>
-                    <p class="text-sm text-blue-500">New Reports</p>
-                </div>
-                <div class="bg-gray-200 p-4 rounded-lg text-center md:col-span-2">
-                    <p class="text-2xl font-bold text-gray-700">${totalRequests}</p>
-                    <p class="text-sm text-gray-500">New Streetlight Requests</p>
+                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <p class="text-2xl font-extrabold text-blue-700">${newComplaints}</p>
+                    <p class="text-xs text-blue-500 font-bold">New</p>
                 </div>
             </div>
 
             <div class="card mt-6">
-                <h2 class="text-2xl font-semibold text-gray-700 mb-4">All Reports and Requests</h2>
+                <h2 class="text-2xl font-extrabold text-gray-700 mb-4">All Reports and Requests</h2>
                 ${allReports.length > 0 ? `
-                    <ul class="space-y-4">
+                    <ul class="divide-y divide-gray-200">
                         ${allReports.map(report => `
-                            <li onclick="showAuthorityReportDetails(${report.id}, '${report.type}')" class="p-4 bg-gray-50 rounded-lg flex flex-col md:flex-row md:justify-between md:items-center cursor-pointer transition-colors hover:bg-gray-100">
-                                <div class="mb-2 md:mb-0">
-                                    <p class="font-semibold text-gray-800">${report.type === 'damage' ? 'Damaged Light Report' : 'New Light Request'}</p>
+                            <li onclick="showAuthorityReportDetails(${report.id}, '${report.type}')" class="p-4 flex flex-col md:flex-row md:justify-between md:items-center cursor-pointer transition-colors hover:bg-gray-50 border-b border-gray-100">
+                                <div class="mb-2 md:mb-0 space-y-1">
+                                    <p class="font-bold text-gray-800">${report.type === 'damage' ? 'Damaged Light Report' : 'New Light Request'}</p>
                                     <p class="text-sm text-gray-500">${report.location}</p>
                                 </div>
-                                <div class="flex items-center space-x-2">
-                                    <span class="text-sm font-medium ${report.status === 'Completed' ? 'text-green-600' : report.status === 'In Progress' ? 'text-yellow-600' : report.status === 'New' || report.status === 'Requested' ? 'text-blue-600' : 'text-blue-600'}">
-                                        Status: ${report.status || 'Reported'}
-                                    </span>
+                                <div class="flex items-center space-x-3">
+                                    ${report.priority ? getPriorityTag(report.priority) : ''}
+                                    ${getStatusTag(report.status)}
                                     ${report.assignedTo ? 
-                                        `<span class="text-sm text-gray-600">Assigned: ${report.assignedTo}</span>` :
-                                        `<button onclick="showAssignModal(${report.id}, event)" class="btn btn-primary text-sm px-3 py-1">Assign</button>`
+                                        `<span class="text-sm font-bold text-gray-600 bg-gray-100 px-3 py-1 rounded-full">Worker: ${report.assignedTo}</span>` :
+                                        `<button onclick="showAssignModal(${report.id}, event)" class="btn btn-primary text-xs px-3 py-1">Assign</button>`
                                     }
                                 </div>
                             </li>
@@ -627,49 +791,33 @@
         appContainer.innerHTML = `
             <div class="card">
                 <div class="flex items-center justify-between mb-6">
-                    <h2 class="text-2xl font-semibold text-gray-700">Report Details</h2>
+                    <h2 class="text-2xl font-extrabold text-gray-700">Report Details</h2>
                     <div class="flex space-x-2">
-                        <button onclick="renderAuthorityDashboard()" class="btn btn-secondary">Back</button>
-                        ${report.assignedTo ? `<button onclick="renderAuthorityEditForm(${report.id}, '${report.type}')" class="btn btn-primary">Edit Report</button>` : ''}
+                        <button onclick="renderAuthorityDashboard()" class="btn btn-secondary py-2 text-base">Back</button>
+                        ${report.assignedTo ? `<button onclick="renderAuthorityEditForm(${report.id}, '${report.type}')" class="btn btn-primary py-2 text-base">Edit Report</button>` : ''}
                     </div>
                 </div>
 
-                <div class="space-y-4">
-                    <div>
-                        <p class="text-sm font-medium text-gray-500">Report Type</p>
-                        <p class="text-lg font-semibold text-gray-800">${report.type === 'damage' ? 'Damaged Light Report' : 'New Light Request'}</p>
+                <div class="space-y-4 border-t border-gray-200 pt-4">
+                    <div class="grid grid-cols-2 gap-4 pb-4 border-b border-gray-100">
+                        <div><p class="text-sm font-bold text-gray-500">Report Type</p><p class="text-lg font-extrabold text-gray-800">${report.type === 'damage' ? 'Damaged Light Report' : 'New Light Request'}</p></div>
+                        <div><p class="text-sm font-bold text-gray-500">Reported By</p><p class="text-lg font-extrabold text-gray-800">${report.reportedBy}</p></div>
+                        <div><p class="text-sm font-bold text-gray-500">Status</p>${getStatusTag(report.status)}</div>
+                        <div><p class="text-sm font-bold text-gray-500">Priority</p>${getPriorityTag(report.priority)}</div>
                     </div>
-                    <div>
-                        <p class="text-sm font-medium text-gray-500">Status</p>
-                        <p class="text-lg font-semibold text-gray-800">${report.status || 'Reported'}</p>
+                    
+                    <div class="grid grid-cols-2 gap-4 pb-4 border-b border-gray-100">
+                        ${report.poleId ? `<div><p class="text-sm font-bold text-gray-500">Pole ID</p><p class="text-lg font-extrabold text-gray-800">${report.poleId}</p></div>` : '<div></div>'}
+                        ${report.estimatedDate ? `<div><p class="text-sm font-bold text-gray-500">Est. Repair Date</p><p class="text-lg font-extrabold text-gray-800">${report.estimatedDate}</p></div>` : '<div></div>'}
                     </div>
-                    <div>
-                        <p class="text-sm font-medium text-gray-500">Location</p>
-                        <p class="text-lg font-semibold text-gray-800">${report.location}</p>
-                    </div>
-                    <div>
-                        <p class="text-sm font-medium text-gray-500">Description</p>
-                        <p class="text-lg font-semibold text-gray-800">${report.description}</p>
-                    </div>
-                    ${report.poleId ? `
-                    <div>
-                        <p class="text-sm font-medium text-gray-500">Pole ID</p>
-                        <p class="text-lg font-semibold text-gray-800">${report.poleId}</p>
-                    </div>` : ''}
-                    ${report.estimatedDate ? `
-                    <div>
-                        <p class="text-sm font-medium text-gray-500">Estimated Repair Date</p>
-                        <p class="text-lg font-semibold text-gray-800">${report.estimatedDate}</p>
-                    </div>` : ''}
-                    ${report.reportedBy ? `
-                    <div>
-                        <p class="text-sm font-medium text-gray-500">Reported By</p>
-                        <p class="text-lg font-semibold text-gray-800">${report.reportedBy}</p>
-                    </div>` : ''}
+
+                    <div><p class="text-sm font-bold text-gray-500">Location</p><p class="text-lg font-extrabold text-gray-800">${report.location}</p></div>
+                    <div><p class="text-sm font-bold text-gray-500">Description</p><p class="text-lg text-gray-800 border p-3 rounded-lg bg-gray-50 font-medium">${report.description}</p></div>
+
                     ${report.assignedTo ? `
-                    <div>
-                        <p class="text-sm font-medium text-gray-500">Assigned To</p>
-                        <p class="text-lg font-semibold text-gray-800">${report.assignedTo}</p>
+                    <div class="border-t border-gray-200 pt-4">
+                        <p class="text-sm font-bold text-gray-500">Assigned Worker</p>
+                        <p class="text-lg font-extrabold text-gray-800">${report.assignedTo}</p>
                     </div>` : ''}
                 </div>
             </div>
@@ -691,8 +839,8 @@
         appContainer.innerHTML = `
             <div class="card">
                 <div class="flex items-center justify-between mb-6">
-                    <h2 class="text-2xl font-semibold text-gray-700">Edit Report</h2>
-                    <button onclick="showAuthorityReportDetails(${id}, '${type}')" class="btn btn-secondary">Cancel</button>
+                    <h2 class="text-2xl font-extrabold text-gray-700">Edit Report (ID: ${id})</h2>
+                    <button onclick="showAuthorityReportDetails(${id}, '${type}')" class="btn btn-secondary py-2 text-base">Cancel</button>
                 </div>
                 
                 <form id="authority-edit-form" class="space-y-4">
@@ -700,7 +848,16 @@
                     <input type="hidden" name="reportType" value="${type}">
                     
                     <div>
-                        <label for="status" class="block text-gray-700 font-medium">Status</label>
+                        <label for="priority" class="block text-gray-700 font-bold">Priority</label>
+                        <select id="priority" name="priority" class="form-input" required>
+                            <option value="Low" ${report.priority === 'Low' ? 'selected' : ''}>Low</option>
+                            <option value="Medium" ${report.priority === 'Medium' ? 'selected' : ''}>Medium</option>
+                            <option value="High" ${report.priority === 'High' ? 'selected' : ''}>High</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="status" class="block text-gray-700 font-bold">Status</label>
                         <select id="status" name="status" class="form-input" required>
                             <option value="New" ${report.status === 'New' ? 'selected' : ''}>New</option>
                             <option value="In Progress" ${report.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
@@ -711,21 +868,21 @@
 
                     ${isDamageReport ? `
                     <div>
-                        <label for="estimatedDate" class="block text-gray-700 font-medium">Estimated Repair Date</label>
+                        <label for="estimatedDate" class="block text-gray-700 font-bold">Estimated Repair Date</label>
                         <input type="date" id="estimatedDate" name="estimatedDate" value="${report.estimatedDate || ''}" class="form-input">
                     </div>` : ''}
 
                     <div>
-                        <label for="assignedTo" class="block text-gray-700 font-medium">Assigned Worker</label>
+                        <label for="assignedTo" class="block text-gray-700 font-bold">Assigned Worker</label>
                         <select id="assignedTo" name="assignedTo" class="form-input">
-                            <option value="">-- Select Worker --</option>
+                            <option value="">-- Unassigned --</option>
                             ${workers.map(w => `
                                 <option value="${w.workerId}" ${report.assignedTo === w.workerId ? 'selected' : ''}>${w.workerId}</option>
                             `).join('')}
                         </select>
                     </div>
                     
-                    <button type="submit" class="btn btn-primary w-full">Save Changes</button>
+                    <button type="submit" class="btn btn-primary w-full py-3 text-lg">Save Changes</button>
                 </form>
             </div>
         `;
@@ -739,6 +896,7 @@
         const reportId = parseInt(form.reportId.value);
         const reportType = form.reportType.value;
         const newStatus = form.status.value;
+        const newPriority = form.priority.value;
         const newAssignedTo = form.assignedTo.value;
         const newEstimatedDate = form.estimatedDate ? form.estimatedDate.value : undefined;
 
@@ -747,6 +905,7 @@
         
         if (report) {
             report.status = newStatus;
+            report.priority = newPriority;
             report.assignedTo = newAssignedTo;
             if (reportType === 'damage') {
                 report.estimatedDate = newEstimatedDate;
@@ -890,6 +1049,8 @@
         const locationInput = form.querySelector('[name="location"]');
         const descriptionInput = form.querySelector('[name="description"]');
         const typeInput = form.querySelector('[name="reportType"]');
+        const poleIdInput = form.querySelector('[name="poleId"]'); // Get Pole ID input
+        const priorityInput = form.querySelector('[name="priority"]'); // Get Priority input
 
         if (!locationInput || !descriptionInput || !typeInput) {
             showMessage("Error: Form inputs not found. Please try again.");
@@ -899,6 +1060,8 @@
         const location = locationInput.value;
         const description = descriptionInput.value;
         const type = typeInput.value;
+        const poleId = poleIdInput ? poleIdInput.value.trim() : null; // Get Pole ID or null
+        const priority = priorityInput ? priorityInput.value : 'Low'; // Get Priority or default to Low for new requests
 
         // Ensure currentCitizen exists before accessing its properties
         if (!currentCitizen) {
@@ -908,33 +1071,52 @@
         }
 
         if (type === 'damage') {
+            // --- NEW DUPLICATION CHECK AND VALIDATION FOR POLE ID ---
+            if (!poleId) {
+                 showMessage("Error: Pole ID is required for damaged light reports.");
+                 return;
+            }
+
+            const existingComplaint = complaints.find(c => 
+                c.poleId === poleId && (c.status === 'New' || c.status === 'In Progress')
+            );
+
+            if (existingComplaint) {
+                showMessage(`Report rejected. Pole ID ${poleId} is already reported and currently ${existingComplaint.status.toLowerCase()}.`);
+                renderCitizenDashboard();
+                return;
+            }
+
             const newComplaint = {
                 id: Date.now(),
-                poleId: nextPoleId++,
+                poleId: poleId, // Use user-input Pole ID
                 location,
                 description,
                 status: 'New',
                 date: new Date().toLocaleDateString(),
                 type: 'damage',
-                reportedBy: currentCitizen.username // Save citizen's username
+                reportedBy: currentCitizen.username,
+                priority: priority // Use citizen-provided priority
             };
             complaints.push(newComplaint);
         } else {
+            // New Light Request (no Pole ID needed)
             const newRequest = {
                 id: Date.now(),
                 location,
                 description,
-                status: 'Requested', // Added status for new light requests
+                status: 'Requested',
                 date: new Date().toLocaleDateString(),
                 type: 'new',
-                reportedBy: currentCitizen.username // Save citizen's username
+                reportedBy: currentCitizen.username,
+                priority: 'Low' // Default to Low for new light request until authority reviews
             };
             requests.push(newRequest);
         }
         
         saveState();
         renderCitizenDashboard();
-        showMessage('Report submitted successfully!');
+        showMessage('Report submitted successfully! Check your dashboard for status.');
     }
 
     function updateStatus(poleId) {
@@ -945,11 +1127,17 @@
             return;
         }
         
+        // Find complaint using the Pole ID (which is now correctly passed as a string)
         const complaint = complaints.find(c => c.poleId === poleId);
+        
         if (complaint) {
             if (complaint.status === 'New') {
                 // If new, prompt for a date and assign to the current worker
-                complaint.assignedTo = currentWorker.workerId;
+                // NOTE: Assignment logic is now also included here for completeness, 
+                // in case the worker starts work on an unassigned job.
+                if (!complaint.assignedTo) {
+                    complaint.assignedTo = currentWorker.workerId;
+                }
                 showDatePrompt(complaint.id);
             } else if (complaint.status === 'In Progress') {
                 // If in progress, mark as completed
@@ -966,15 +1154,15 @@
         modal.className = "fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50";
         modal.innerHTML = `
             <div class="card w-full max-w-sm">
-                <h3 class="text-xl font-semibold mb-4 text-center">Set Estimated Repair Date</h3>
+                <h3 class="text-xl font-extrabold mb-4 text-center">Set Estimated Repair Date</h3>
                 <form id="date-form">
                     <div class="space-y-2 mb-4">
-                        <label for="estimatedDate" class="block text-sm font-medium text-gray-700">Select Date</label>
+                        <label for="estimatedDate" class="block text-sm font-bold text-gray-700">Select Date</label>
                         <input type="date" id="estimatedDate" class="form-input" required>
                     </div>
                     <div class="flex space-x-2">
-                        <button type="button" id="cancel-date-btn" class="btn btn-secondary flex-1">Cancel</button>
-                        <button type="submit" class="btn btn-primary flex-1">Set Date</button>
+                        <button type="button" id="cancel-date-btn" class="btn btn-secondary flex-1 py-2 text-base">Cancel</button>
+                        <button type="submit" class="btn btn-primary flex-1 py-2 text-base">Set Date</button>
                     </div>
                 </form>
             </div>
@@ -1008,13 +1196,13 @@
         modal.className = "fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50";
         modal.innerHTML = `
             <div class="card w-full max-w-sm">
-                <h3 class="text-xl font-semibold mb-4 text-center">Assign Report to a Worker</h3>
+                <h3 class="text-xl font-extrabold mb-4 text-center">Assign Report to a Worker</h3>
                 <div class="space-y-4">
                     ${workers.map(w => `
-                        <button onclick="assignWork(${reportId}, '${w.workerId}')" class="btn btn-primary w-full">${w.workerId}</button>
+                        <button onclick="assignWork(${reportId}, '${w.workerId}')" class="btn btn-primary w-full py-2 text-base">${w.workerId}</button>
                     `).join('')}
                 </div>
-                <button onclick="document.body.removeChild(this.closest('.fixed'))" class="btn btn-secondary w-full mt-4">Cancel</button>
+                <button onclick="document.body.removeChild(this.closest('.fixed'))" class="btn btn-secondary w-full mt-4 py-2 text-base">Cancel</button>
             </div>
         `;
         document.body.appendChild(modal);
@@ -1024,6 +1212,10 @@
         const report = [...complaints, ...requests].find(r => r.id === reportId);
         if (report) {
             report.assignedTo = workerId;
+            // Set default priority if it doesn't exist (only needed for older reports)
+            if (!report.priority) {
+                report.priority = 'Low';
+            }
             saveState();
             showMessage(`Report assigned to Worker ${workerId}`);
             renderAuthorityDashboard();
@@ -1051,11 +1243,29 @@
         
         if (isLoggedIn) {
             if (userRole === 'citizen') {
-                renderCitizenDashboard();
+                // Ensure currentCitizen is not null before rendering dashboard
+                if (currentCitizen) {
+                    renderCitizenDashboard();
+                } else {
+                    showMessage("Error: Citizen user data missing. Logging out.");
+                    logout();
+                }
             } else if (userRole === 'worker') {
-                renderWorkerDashboard();
+                // Ensure currentWorker is not null before rendering dashboard
+                if (currentWorker) {
+                    renderWorkerDashboard();
+                } else {
+                    showMessage("Error: Worker user data missing. Logging out.");
+                    logout();
+                }
             } else if (userRole === 'authority') {
-                renderAuthorityDashboard();
+                // Ensure currentAuthority is not null before rendering dashboard
+                if (currentAuthority) {
+                    renderAuthorityDashboard();
+                } else {
+                    showMessage("Error: Authority user data missing. Logging out.");
+                    logout();
+                }
             }
         } else {
             // If a role is selected but not logged in, render the login form.
@@ -1073,7 +1283,7 @@
     }
 
     // Load initial view
-    renderApp();
+    window.onload = renderApp; // Use window.onload to ensure all DOM elements are loaded before rendering
 </script>
 
 </body>
